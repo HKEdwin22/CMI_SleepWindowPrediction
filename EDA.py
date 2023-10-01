@@ -19,11 +19,29 @@ def DescriptiveStat(x, t):
 
     if t == 'csv':
         df = pd.read_csv(x)
-    else:
-        df = pl.read_
-    print(df.info() + '\n')
-    print(df.nunique() + '\n')
-    print(df.describe() + '\n')
+    print(df.info())
+    print(df.nunique())
+    print(df.describe())
+
+def ReadParquet(x):
+    '''
+    Load a parquet file and return a panda dataframe
+    x : input dataset
+    '''
+    y = pl.scan_parquet(x, n_rows=15000)
+                # .with_columns(
+                #     (
+                #         (pl.col("timestamp").str.strptime(pl.Datetime, "%Y-%m-%dT%H:%M:%S%Z")),
+                #         (pl.col("timestamp").str.strptime(pl.Datetime, "%Y-%m-%dT%H:%M:%S%Z").dt.year().alias("year")),
+                #         (pl.col("timestamp").str.strptime(pl.Datetime, "%Y-%m-%dT%H:%M:%S%Z").dt.month().alias("month")),
+                #         (pl.col("timestamp").str.strptime(pl.Datetime, "%Y-%m-%dT%H:%M:%S%Z").dt.day().alias("day")),
+                #         (pl.col("timestamp").str.strptime(pl.Datetime, "%Y-%m-%dT%H:%M:%S%Z").dt.hour().alias("hour")),
+                #     )
+                # )
+    y = y.collect()
+    
+    return y.to_pandas()
+
 
 # Main program
 if __name__ == '__main__':
@@ -34,7 +52,13 @@ if __name__ == '__main__':
     target_path = 'DSAI\Kaggle_Competitions\CMI_Detect Sleep States\RawData'
     os.chdir(os.path.join(dir_MyDoc, target_path))
     
+    # Load train_events.csv
     file = './train_events.csv'
-    DescriptiveStat(file)
+    DescriptiveStat(file, 'csv')
+    print('---------- Finished reading train_events.csv ----------')
+
+    # Load train_series.parquet
+    file = './train_series.parquet'
+    ReadParquet(file)
     
     pass
