@@ -6,9 +6,10 @@ This script is used for EDA of the project.
 import os
 import polars as pl
 import pandas as pd
-
+import dtale as dt
 import seaborn as sns
 import matplotlib.pyplot as plt
+
 
 def DescriptiveStat(x, t):
     '''
@@ -19,6 +20,9 @@ def DescriptiveStat(x, t):
 
     if t == 'csv':
         df = pd.read_csv(x)
+    
+    d = dt.show(df)
+    print(d._main_url)
     print(df.info())
     print(df.nunique())
     print(df.describe())
@@ -55,10 +59,11 @@ if __name__ == '__main__':
     # Load train_events.csv
     file = './train_events.csv'
     DescriptiveStat(file, 'csv')
-    print('---------- Finished reading train_events.csv ----------')
+    print('\n---------- Finished reading train_events.csv ----------')
 
     # Load train_series.parquet
-    file = './train_series.parquet'
-    ReadParquet(file)
+    # file = './train_series.parquet'
+    # ReadParquet(file)
+    
     
     pass
