@@ -6,6 +6,7 @@ This script is used for EDA of the project.
 import os
 import polars as pl
 import pandas as pd
+import numpy as np
 import dtale as dt
 import seaborn as sns
 import matplotlib.pyplot as plt
@@ -21,8 +22,8 @@ def DescriptiveStat(x, t):
     if t == 'csv':
         df = pd.read_csv(x)
     
-    d = dt.show(df)
-    print(d._main_url)
+    # d = dt.show(df)
+    # print(d._main_url)
     print(df.info())
     print(df.nunique())
     print(df.describe())
@@ -58,12 +59,58 @@ if __name__ == '__main__':
     
     # Load train_events.csv
     file = './train_events.csv'
-    DescriptiveStat(file, 'csv')
+    # DescriptiveStat(file, 'csv')
     print('\n---------- Finished reading train_events.csv ----------')
 
     # Load train_series.parquet
     # file = './train_series.parquet'
     # ReadParquet(file)
+
+    '''
+    Coding for determining the time interval
+    '''
+    df = pd.read_csv(file)
+    gp = df.groupby('series_id')['step'].count()
+    gp = pd.DataFrame({'sid': gp.index, 'step_num': gp.values})
+    gp['empt_night'] = ''
+
+    for sid in gp.sid:
+        df_temp = df[(df.series_id == sid)]
+        idx = gp[gp.sid == sid].index[0]
+        nights = []
+
+        # Check if each night has a pair of steps
+        empty_night = df_temp[df_temp['step'].isna()]['night']
+        empty_night = empty_night.unique()
+        gp.at[idx, 'empt_night'] = empty_night.tolist()
     
-    
+        # Coding for the number of consecutive days that an accelerometer collected records
+        max_night = df_temp.groupby('series_id')['night'].max()[0]
+        gp.at[idx, 'max_night'] = max_night
+        mt_night = gp[gp.sid == sid]['empt_night'].values[0]
+
+        if bool(mt_night) == True:
+            for i in range(len(mt_night)):
+                if mt_night[i] != 1:
+                    if i == 0:
+                        con_night = mt_night[i] - 1
+                    elif i+1 == len(mt_night) and mt_night[i] < max_night:
+                        con_night = max_night - mt_night[i]
+                    else:
+                        con_night = mt_night[i] - mt_night[i-1] - 1
+                nights.append(con_night)
+
+            gp.at[idx, 'max_cont_night'] = max(nights)
+        else:
+            gp.at[idx, 'max_cont_night'] = max_night
+
+    # Configure the dtype of numeric data
+    gp['step_num'] = gp['step_num'].astype(np.int8)
+    gp['max_night'] = gp['max_night'].astype(np.int8)
+    gp['max_cont_night'] = gp['max_cont_night'].astype(np.int8)
+
+    d = dt.show(gp)
+    print(d._main_url)
+    gp.to_csv('./trE_cont_nights.csv')
+
     pass
