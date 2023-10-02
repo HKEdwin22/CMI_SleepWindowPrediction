@@ -69,6 +69,7 @@ if __name__ == '__main__':
     '''
     Coding for determining the time interval
     '''
+    file = './train_events_replacement.csv'
     df = pd.read_csv(file)
     gp = df.groupby('series_id')['step'].count()
     gp = pd.DataFrame({'sid': gp.index, 'step_num': gp.values})
@@ -98,11 +99,16 @@ if __name__ == '__main__':
                         con_night = max_night - mt_night[i]
                     else:
                         con_night = mt_night[i] - mt_night[i-1] - 1
+                elif len(mt_night) == 1:
+                    con_night = max_night - mt_night[i]
+
                 nights.append(con_night)
 
             gp.at[idx, 'max_cont_night'] = max(nights)
         else:
             gp.at[idx, 'max_cont_night'] = max_night
+
+        
 
     # Configure the dtype of numeric data
     gp['step_num'] = gp['step_num'].astype(np.int8)
