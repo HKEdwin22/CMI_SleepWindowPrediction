@@ -1,6 +1,8 @@
 # Import libraries
 import os
 import pandas as pd
+import numpy as np
+import re
 
 # Change directory to access the raw data
 dir_old = os.getcwd()    
@@ -33,6 +35,7 @@ col_diff = []
 for sid in gp['sid']:
     max_night = gp[gp.sid == sid]['max_night'].values[0]
     mt_night = gp[gp.sid == sid]['empt_night'].values[0]
+    mt_night = list(map(int, re.findall(r'\d+', mt_night)))
 
     for night in range(1, max_night+1):
         if night not in mt_night:
