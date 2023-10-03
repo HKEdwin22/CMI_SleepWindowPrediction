@@ -115,8 +115,22 @@ if __name__ == '__main__':
     gp['max_night'] = gp['max_night'].astype(np.int8)
     gp['max_cont_night'] = gp['max_cont_night'].astype(np.int8)
 
-    d = dt.show(gp)
-    print(d._main_url)
-    gp.to_csv('./trE_cont_nights.csv')
+    # d = dt.show(gp)
+    # print(d._main_url)
+    # gp.to_csv('./trE_cont_nights.csv')
+
+
+    '''
+    Checking missing values
+    '''
+    df_check = pd.read_csv('./train_events.csv')
+    for sid in gp.sid:
+        max_night = gp[(gp.sid == sid)].max_night.values[0]
+        all_nights = df_check[df_check.series_id == sid]['night'].unique()
+
+        for i in range(1, max_night+1):
+            if i not in all_nights:
+                print(f'Missing entry identified : \tsid [{sid}] \tnight [{i}]')
+        
 
     pass
