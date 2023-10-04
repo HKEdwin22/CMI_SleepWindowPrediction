@@ -180,13 +180,13 @@ def CheckMissingVal(x):
         gp = pd.read_csv('./trE_cont_nights.csv', index_col=0)
         
         for sid in gp.sid:
-            max_night = gp[gp[gp.sid == sid]].max_night.values[0]
-            all_nights = df_check[df_check(df_check.series_id == sid)]['night'].unique()
+            max_night = gp[gp.sid == sid].max_night.values[0]
+            all_nights = df_check[df_check.series_id == sid]['night'].unique()
 
             for i in range(1, max_night+1):
                 if i not in all_nights:
                     print(f'Missing entry identified : \tsid [{sid}] \tnight [{i}]')
-                    if meter_msval.has_key(sid):
+                    if sid in meter_msval.keys():
                         meter_msval[sid].append(i)
                     else:
                         meter_msval[sid] = [i]
@@ -231,9 +231,12 @@ if __name__ == '__main__':
     print(percent)
 
     '''
-    Exploiting the dataset - creating a new table
+    Exploiting the dataset
     '''
     dfUTC = ExtractDateTime('./train_events_replacement.csv')
+
+    # Check missing values
+    dfRaw, dfContN, missVal = CheckMissingVal('./train_events.csv')   
 
     # Compute the number of steps for each night and store in a new dataframe
     col_sid = []
@@ -257,8 +260,6 @@ if __name__ == '__main__':
                             'step_number': col_diff
                             })
 
-    # Check missing values
-    dfRaw, dfContN, missVal = CheckMissingVal('./train_events.csv')   
 
     
     pass
