@@ -295,8 +295,7 @@ if __name__ == '__main__':
 
                 timeOn = pd.to_datetime(df[(df.series_id == sid) & (df.night == night) & (df.event == 'onset')]['timestamp'], utc=True)
                 timeWkup = pd.to_datetime(df[(df.series_id == sid) & (df.night == night) & (df.event == 'wakeup')]['timestamp'], utc=True)
-                diff = timeWkup.values - timeOn.values
-                diff = pd.Series(diff, name='duration')
+                diff = pd.Series(timeWkup.values - timeOn.values, name='duration')
                 colDuration.append(diff)
         
         df_diff = pd.DataFrame({'sid': col_sid,
