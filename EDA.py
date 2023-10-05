@@ -105,7 +105,8 @@ class IdentifyContradictions:
         '''
         Identify nights without records and return the relevant dataframe
         '''
-        gp = pd.DataFrame({'sid': self.replacedDF['index'], 'step_num': self.replacedDF['values']})
+        print(self.replacedDF.index)
+        gp = pd.DataFrame({'sid': self.replacedDF.index, 'step_num': self.replacedDF.values})
         gp['empt_night'] = ''
         print(gp.head())
 
@@ -206,8 +207,8 @@ if __name__ == '__main__':
     print('\n---------- Finished reading train_events.csv ----------')
 
     # Looking into the details of the data
-    d = dtale.show(df)
-    print(d._main_url)
+    # d = dtale.show(df)
+    # print(d._main_url)
 
     # Load train_series.parquet
     # file = './train_series.parquet'
@@ -221,6 +222,7 @@ if __name__ == '__main__':
     Int.contradictions()
     Int.nightsNoRecord()
     dfNoContra = Int.replacedDF
+    print('---------- Dataset has no more contradiction ----------')
 
     # Looking into the dataset
     dfNoContra['max_cont_night'].describe()
@@ -237,28 +239,37 @@ if __name__ == '__main__':
 
     # Check missing values
     dfRaw, dfContN, missVal = CheckMissingVal('./train_events.csv')   
+    print('---------- Missing nights checked ----------')
 
     # Compute the number of steps for each night and store in a new dataframe
     col_sid = []
     col_night = []
     col_diff = []
 
-    for sid in gp['sid'].values:
-        max_night = gp['max_night'].values
+    for sid in dfNoContra['sid'].values:
+        max_night = dfNoContra[dfNoContra.sid == sid]['max_night'].values[0]
+        mtNight = dfNoContra[dfNoContra.sid == sid].empt_night.values[0] # This returns the list as stored in the dataframe
+        # map(int, re.findall(r'\d+', mtNight))
+        if sid in missVal:
+            mtNight = missVal[sid] + mtNight
 
         for night in range(1, max_night+1):
-            step_on = df_temp[(df_temp['sid' == sid]) & (df_temp['night' == night]) & (df_temp['event' == 'onset'])]['step'].values[0]
-            step_up = df_temp[(df_temp['sid' == sid]) & (df_temp['night' == night]) & (df_temp['event' == 'wakeup'])]['step'].values[0]
-            diff = step_up - step_on
-            
-            col_sid.append(sid)
-            col_night.append(night)
-            col_diff.append(diff)
+            if night not in mtNight:
+                step_on = dfUTC[(dfUTC['series_id'] == sid) & (dfUTC['night'] == night) & (dfUTC['event'] == 'onset')]['step'].values[0]
+                step_up = dfUTC[(dfUTC['series_id'] == sid) & (dfUTC['night'] == night) & (dfUTC['event'] == 'wakeup')]['step'].values[0]
+                diff = step_up - step_on
+                
+                col_sid.append(sid)
+                col_night.append(night)
+                col_diff.append(diff)
         
     df_diff = pd.DataFrame({'sid': col_sid,
                             'night': col_night,
                             'step_number': col_diff
                             })
+    
+    df_diff = df_diff.astype({'night': 'int8'})
+    df_diff = df_diff.astype({'step_number': 'int16'})
 
 
     
