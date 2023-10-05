@@ -227,9 +227,12 @@ if __name__ == '__main__':
     print(df.nunique())
     print('\n---------- Finished reading train_events.csv ----------')
 
-    # Looking into the details of the data
-    # d = dtale.show(df)
-    # print(d._main_url)
+    # Looking into the details of the raw data
+    usrAns = input('Look into the details of the raw dataset [y/n]?\t')
+    if usrAns.lower() == 'y':
+        d = dtale.show(df)
+        print(d._main_url)
+    print('---------- Skip the detail of the raw dataset ----------')
 
     # Load train_series.parquet
     # file = './train_series.parquet'
@@ -259,18 +262,19 @@ if __name__ == '__main__':
     dfUTC = ExtractDateTime('./train_events_replacement.csv')
 
     # Check missing values
-    usrAns = input('Check missing entries [y/n]?\t')
+    usrAns = input('\nCheck missing entries [y/n]?\t')
     if usrAns.lower() == 'y':
         dfRaw, dfContN, missVal = CheckMissingVal('./train_events.csv')   
-        print('---------- Missing nights checked ----------')
+        print('---------- Missing nights checked ----------\n')
     else:
-        print('---------- Missing nights passed ----------')
+        print('---------- Missing nights passed ----------\n')
         missVal = []
 
     # Compute the number of steps for each night and store in a new dataframe
     col_sid = []
     col_night = []
     col_diff = []
+    colDuration = []
 
     for sid in dfNoContra['sid'].values:
         max_night = dfNoContra[dfNoContra.sid == sid]['max_night'].values[0]
@@ -288,11 +292,18 @@ if __name__ == '__main__':
                 col_sid.append(sid)
                 col_night.append(night)
                 col_diff.append(diff)
+
+                timeOn = pd.to_datetime(df[(df.series_id == sid) & (df.night == night) & (df.event == 'onset')]['timestamp'], utc=True)
+                timeWkup = pd.to_datetime(df[(df.series_id == sid) & (df.night == night) & (df.event == 'wakeup')]['timestamp'], utc=True)
+                diff = timeWkup.values - timeOn.values
+                diff = pd.Series(diff, name='duration')
+                colDuration.append(diff)
         
-    df_diff = pd.DataFrame({'sid': col_sid,
-                            'night': col_night,
-                            'step_number': col_diff
-                            })
+        df_diff = pd.DataFrame({'sid': col_sid,
+                                'night': col_night,
+                                'step_number': col_diff,
+                                'sleep_duration': colDuration
+                                })
     
     df_diff = df_diff.astype({'night': 'int8'})
     df_diff = df_diff.astype({'step_number': 'int16'})
