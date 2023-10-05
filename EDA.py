@@ -194,6 +194,26 @@ def CheckMissingVal(x):
 
         return df_check, gp, meter_msval
 
+def CorrectRawData(x):
+    '''
+    Add the missing nights to the raw dataset for better analysis
+    x : raw dataset
+    '''
+    dfNew = pd.DataFrame({'series_id': ['137771d19ca2', '1f96b9668bdf', 'c7b1283bb7eb', 'c7d693f24684', 'e11b9d69f856'], 
+                          'night': [1, 1, 1, 1, 1], 'event': ['onset', 'onset', 'onset', 'onset', 'onset'], 
+                          'step': [np.nan, np.nan, np.nan, np.nan, np.nan], 
+                          'timestamp': [np.nan, np.nan, np.nan, np.nan, np.nan]
+                          })
+    x = pd.concat([x, dfNew], ignore_index=True)
+    dfNew = pd.DataFrame({'series_id': ['137771d19ca2', '1f96b9668bdf', 'c7b1283bb7eb', 'c7d693f24684', 'e11b9d69f856'], 
+                          'night': [1, 1, 1, 1, 1], 'event': ['wakeup', 'wakeup', 'wakeup', 'wakeup', 'wakeup'], 
+                          'step': [np.nan, np.nan, np.nan, np.nan, np.nan], 
+                          'timestamp': [np.nan, np.nan, np.nan, np.nan, np.nan]
+                          })
+    x = pd.concat([x, dfNew], ignore_index=True)
+
+    return x
+
 
 # Main program
 if __name__ == '__main__':
@@ -203,6 +223,7 @@ if __name__ == '__main__':
     # Overview of train_events.csv
     file = './train_events.csv'
     df = DescriptiveStat(file, 'csv')
+    df = CorrectRawData(df)
     print(df.nunique())
     print('\n---------- Finished reading train_events.csv ----------')
 
@@ -238,8 +259,13 @@ if __name__ == '__main__':
     dfUTC = ExtractDateTime('./train_events_replacement.csv')
 
     # Check missing values
-    dfRaw, dfContN, missVal = CheckMissingVal('./train_events.csv')   
-    print('---------- Missing nights checked ----------')
+    usrAns = input('Check missing entries [y/n]?\t')
+    if usrAns.lower() == 'y':
+        dfRaw, dfContN, missVal = CheckMissingVal('./train_events.csv')   
+        print('---------- Missing nights checked ----------')
+    else:
+        print('---------- Missing nights passed ----------')
+        missVal = []
 
     # Compute the number of steps for each night and store in a new dataframe
     col_sid = []
@@ -250,7 +276,7 @@ if __name__ == '__main__':
         max_night = dfNoContra[dfNoContra.sid == sid]['max_night'].values[0]
         mtNight = dfNoContra[dfNoContra.sid == sid].empt_night.values[0] # This returns the list as stored in the dataframe
         # map(int, re.findall(r'\d+', mtNight))
-        if sid in missVal:
+        if (missVal != []) & (sid in missVal):
             mtNight = missVal[sid] + mtNight
 
         for night in range(1, max_night+1):
@@ -270,6 +296,7 @@ if __name__ == '__main__':
     
     df_diff = df_diff.astype({'night': 'int8'})
     df_diff = df_diff.astype({'step_number': 'int16'})
+    # df_diff.to_csv('differences.csv', index=False)
 
 
     
