@@ -214,6 +214,48 @@ def CorrectRawData(x):
 
     return x
 
+def ComputeStepSleep(x, t, df, mV):
+    '''
+    Compute number of steps during a sleep window and the sleep duration
+    x : dfNoContra
+    t : dfUTC
+    df : (corrected) raw dataset
+    mV : missVal
+    '''        
+    dfDummy = pd.DataFrame({'sid': [], 'night': [], 'step_number': [], 'sleep_duration': []})
+
+    for sid in x['sid'].values:
+        df_diff = {'sid': [], 'night': [], 'step_number': [], 'sleep_duration': []}
+        max_night = x[x.sid == sid]['max_night'].values[0]
+        mtNight = x[x.sid == sid].empt_night.values[0] # This returns the list as stored in the dataframe
+        # map(int, re.findall(r'\d+', mtNight))
+        if (mV != []) & (sid in mV):
+            mtNight = mV[sid] + mtNight
+
+        for night in range(1, max_night+1):
+            if night not in mtNight:
+                valOn = t[(t['series_id'] == sid) & (t['night'] == night) & (t['event'] == 'onset')]['step'].values[0]
+                valUp = t[(t['series_id'] == sid) & (t['night'] == night) & (t['event'] == 'wakeup')]['step'].values[0]
+                diff = valUp - valOn
+
+                df_diff['sid'].append(sid)
+                df_diff['night'].append(night)
+                df_diff['step_number'].append(diff)
+
+                valOn = pd.to_datetime(df[(df.series_id == sid) & (df.night == night) & (df.event == 'onset')]['timestamp'], utc=True)
+                valUp = pd.to_datetime(df[(df.series_id == sid) & (df.night == night) & (df.event == 'wakeup')]['timestamp'], utc=True)
+                diff = pd.Series(valUp.values - valOn.values, name='duration')
+        
+                df_diff['sleep_duration'].append(diff)
+    
+        temp = pd.DataFrame(df_diff)
+        dfDummy = pd.concat([dfDummy, temp], ignore_index=True)
+        del(temp)
+
+    
+    dfDummy = dfDummy.astype({'night': 'int8'})
+    dfDummy = dfDummy.astype({'step_number': 'int16'})
+    # df_diff.to_csv('differences.csv', index=False)
 
 # Main program
 if __name__ == '__main__':
@@ -271,43 +313,7 @@ if __name__ == '__main__':
         missVal = []
 
     # Compute the number of steps for each night and store in a new dataframe
-    col_sid = []
-    col_night = []
-    col_diff = []
-    colDuration = []
-
-    for sid in dfNoContra['sid'].values:
-        max_night = dfNoContra[dfNoContra.sid == sid]['max_night'].values[0]
-        mtNight = dfNoContra[dfNoContra.sid == sid].empt_night.values[0] # This returns the list as stored in the dataframe
-        # map(int, re.findall(r'\d+', mtNight))
-        if (missVal != []) & (sid in missVal):
-            mtNight = missVal[sid] + mtNight
-
-        for night in range(1, max_night+1):
-            if night not in mtNight:
-                step_on = dfUTC[(dfUTC['series_id'] == sid) & (dfUTC['night'] == night) & (dfUTC['event'] == 'onset')]['step'].values[0]
-                step_up = dfUTC[(dfUTC['series_id'] == sid) & (dfUTC['night'] == night) & (dfUTC['event'] == 'wakeup')]['step'].values[0]
-                diff = step_up - step_on
-                
-                col_sid.append(sid)
-                col_night.append(night)
-                col_diff.append(diff)
-
-                timeOn = pd.to_datetime(df[(df.series_id == sid) & (df.night == night) & (df.event == 'onset')]['timestamp'], utc=True)
-                timeWkup = pd.to_datetime(df[(df.series_id == sid) & (df.night == night) & (df.event == 'wakeup')]['timestamp'], utc=True)
-                diff = pd.Series(timeWkup.values - timeOn.values, name='duration')
-                colDuration.append(diff)
-        
-        df_diff = pd.DataFrame({'sid': col_sid,
-                                'night': col_night,
-                                'step_number': col_diff,
-                                'sleep_duration': colDuration
-                                })
-    
-    df_diff = df_diff.astype({'night': 'int8'})
-    df_diff = df_diff.astype({'step_number': 'int16'})
-    # df_diff.to_csv('differences.csv', index=False)
-
+    ComputeStepSleep(dfNoContra, dfUTC, df, missVal)
 
     
     pass
