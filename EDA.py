@@ -292,9 +292,9 @@ if __name__ == '__main__':
 
     # Looking into the dataset
     dfNoContra['max_cont_night'].describe()
-    percent = pd.DataFrame({'Day': [dfNoContra['max_cont_night'].quantile(0.35), dfNoContra['max_cont_night'].quantile(0.43)], 
-                            'Percentage' : [1-0.35, 1-0.43],
-                            'Number of Samples': [(277*.65), 277*.57]
+    percent = pd.DataFrame({'Day': [dfNoContra['max_cont_night'].quantile(.3156), dfNoContra['max_cont_night'].quantile(0.4149)], 
+                            'Percentage' : [1-0.3156, 1-0.4129],
+                            'Number of Samples': [(277*.(1-0.3156)), 277*(1-0.4129)]
                             })
     print(percent)
 
