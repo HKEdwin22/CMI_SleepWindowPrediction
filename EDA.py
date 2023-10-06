@@ -10,6 +10,9 @@ import pandas as pd
 import numpy as np
 import dtale
 
+from scipy import stats
+from sklearn import preprocessing
+
 import seaborn as sns
 import matplotlib.pyplot as plt
 
@@ -250,12 +253,41 @@ def ComputeStepSleep(x, t, df, mV):
     
         temp = pd.DataFrame(df_diff)
         dfDummy = pd.concat([dfDummy, temp], ignore_index=True)
-        del(temp)
-
     
     dfDummy = dfDummy.astype({'night': 'int8'})
     dfDummy = dfDummy.astype({'step_number': 'int16'})
-    # df_diff.to_csv('differences.csv', index=False)
+    # dfDummy.to_csv('differences.csv', index=True)
+
+    return dfDummy
+
+def DecomposeTimeDelta(x):
+        '''
+        Decompose the sleep duration into day, hour, minute etc.
+        x: input dataset (dfDiff)
+        '''
+        X = x.sleep_duration
+        days, hours, mins = [], [], []
+
+        for t in X:
+            days.append(t[0].components.days)
+            hours.append(t[0].components.hours)
+            mins.append(t[0].components.minutes)
+
+        x['slp_days'] = days
+        x['slp_hrs'] = hours
+        x['slp_mins'] = mins            
+        x['total'] = x.slp_hrs*60 + x.slp_mins
+        x.to_csv('./differences.csv', index=True)
+
+        return x 
+
+def LookIntoDetail(x):
+    '''
+    Run dtale and look into the data
+    x: input dataset
+    '''
+    d = dtale.show(x)
+    print(d._main_url)
 
 # Main program
 if __name__ == '__main__':
@@ -265,16 +297,16 @@ if __name__ == '__main__':
     # Overview of train_events.csv
     file = './train_events.csv'
     df = DescriptiveStat(file, 'csv')
-    df = CorrectRawData(df)
-    print(df.nunique())
+
+    usrAns = False
+    if usrAns:
+        df = CorrectRawData(df)
+        print(df.nunique())
     print('\n---------- Finished reading train_events.csv ----------')
 
     # Looking into the details of the raw data
-    usrAns = input('Look into the details of the raw dataset [y/n]?\t')
-    if usrAns.lower() == 'y':
-        d = dtale.show(df)
-        print(d._main_url)
-    print('---------- Skip the detail of the raw dataset ----------')
+    usrAns = False
+    LookIntoDetail if usrAns else print('---------- Skip the detail of the raw dataset ----------')
 
     # Load train_series.parquet
     # file = './train_series.parquet'
@@ -294,7 +326,7 @@ if __name__ == '__main__':
     dfNoContra['max_cont_night'].describe()
     percent = pd.DataFrame({'Day': [dfNoContra['max_cont_night'].quantile(.3156), dfNoContra['max_cont_night'].quantile(0.4149)], 
                             'Percentage' : [1-0.3156, 1-0.4129],
-                            'Number of Samples': [(277*.(1-0.3156)), 277*(1-0.4129)]
+                            'Number of Samples': [277*(1-0.3156), 277*(1-0.4129)]
                             })
     print(percent)
 
@@ -304,8 +336,8 @@ if __name__ == '__main__':
     dfUTC = ExtractDateTime('./train_events_replacement.csv')
 
     # Check missing values
-    usrAns = input('\nCheck missing entries [y/n]?\t')
-    if usrAns.lower() == 'y':
+    usrAns = False
+    if usrAns:
         dfRaw, dfContN, missVal = CheckMissingVal('./train_events.csv')   
         print('---------- Missing nights checked ----------\n')
     else:
@@ -313,7 +345,19 @@ if __name__ == '__main__':
         missVal = []
 
     # Compute the number of steps for each night and store in a new dataframe
-    ComputeStepSleep(dfNoContra, dfUTC, df, missVal)
+    usrAns = False
+    if usrAns:
+        dfDiff = ComputeStepSleep(dfNoContra, dfUTC, df, missVal)
+        DecomposeTimeDelta(dfDiff)
+        print('---------- Number of steps and sleep duration computed ----------\t')
+    else:
+        print('---------- Skip computing the number of steps and sleep duration ----------\t')
 
-    
+    df = pd.read_csv('./differences.csv', index_col=0)
+    stpStd = preprocessing(df.step_number)
+    totalStd = preprocessing(df.total)
+    result = stats.pearsonr(stpStd, totalStd)
+    print(result)
+    stats.ttest_ind(stpStd, totalStd, equal_var=True)
+
     pass
