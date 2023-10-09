@@ -349,15 +349,34 @@ if __name__ == '__main__':
     if usrAns:
         dfDiff = ComputeStepSleep(dfNoContra, dfUTC, df, missVal)
         DecomposeTimeDelta(dfDiff)
-        print('---------- Number of steps and sleep duration computed ----------\t')
+        print('---------- Number of steps and sleep duration computed ----------\n')
     else:
-        print('---------- Skip computing the number of steps and sleep duration ----------\t')
+        print('---------- Skip computing the number of steps and sleep duration ----------\n')
 
     df = pd.read_csv('./differences.csv', index_col=0)
-    stpStd = preprocessing(df.step_number)
-    totalStd = preprocessing(df.total)
-    result = stats.pearsonr(stpStd, totalStd)
-    print(result)
-    stats.ttest_ind(stpStd, totalStd, equal_var=True)
+
+    # Visualise the relation between the number of steps and total sleep duration
+    usrAns = False
+    if usrAns:
+        plt.figure(figsize=(16,9))
+        sns.scatterplot(x='total', y='step_number', data=df)
+        plt.xlabel('Total Sleep Duration (mins)')
+        plt.ylabel('Number of Steps (in a sleep window per night)')
+
+        plt.tight_layout()
+        plt.show()
+
+    # Pearson correlation coefficient of the number of steps and total sleep duration
+    result = stats.pearsonr(x=df.total, y=df.step_number)
+    print(f'Pearson correlation coefficient:\t{result[0]}\t\t\tp-value:\t{result[1]}')
+
+    # Determine if the correlation coefficient is statistically significant
+    plt.plot(df.total, df.step_num)
+
+    # stpStd = preprocessing(df.step_number)
+    # totalStd = preprocessing(df.total)
+    # result = stats.pearsonr(stpStd, totalStd)
+    # print(result)
+    # stats.ttest_ind(stpStd, totalStd, equal_var=True)
 
     pass
