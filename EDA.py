@@ -289,6 +289,51 @@ def LookIntoDetail(x):
     '''
     d = dtale.show(x)
     print(d._main_url)
+    
+def GammaQQPlot(df, dof):
+    '''
+    Check if the variables have a bivariate normal distribution
+    df: input dataframe
+    dof: degree of freedom for the chi2 distribution
+    '''
+    # Extract useful data
+    x1 = df['total'].to_numpy()
+    x1 = x1.reshape((len(x1),1))
+    x2 = df['step_number'].to_numpy()
+    x2 = x2.reshape((len(x2),1))
+    x = np.stack((x1, x2), axis=1).T 
+    x = x.reshape((2,len(x1)))
+
+    # Compute the inverse covariance matrix and the mean
+    covInv = np.linalg.pinv(np.cov(x))
+    mu = [x[0].mean(), x[1].mean()]
+    x = x.T
+
+    # Compute squared Mahalanobis distance
+    mahaDis = []
+    for i in x:
+        mahaDis.append(spatial.distance.mahalanobis(i.tolist(), mu, VI=covInv))
+    mahaDis = np.asarray(mahaDis)
+    mahaDis = np.square(mahaDis).tolist()
+    mahaDis.sort()
+    
+    # Generate a Chi-square distribution
+    np.random.seed(7)
+    chi2 = np.random.chisquare(df=dof, size=len(df))
+    chi2Q = [np.quantile(chi2, i/len(df)) for i in range(0, len(df))]
+    
+    # Plot the Gamma QQ Plot
+    plt.figure(figsize=(9,6))
+    sns.scatterplot(x=mahaDis, y=chi2Q)
+
+    plt.xlabel('Squared Mahalanobis Distance', fontsize=16)
+    plt.ylabel('Chi-Square Quantile', fontsize=16)
+    plt.yticks(ticks=[0,1.3,2.6,3.9,5.2,6.5,7.8,9.1,10.4,11.7,13], labels=[i for i in range(0,11)], fontsize=16)
+    plt.xticks(fontsize=16)
+    
+    plt.tight_layout()
+    plt.show()
+
 
 # Main program
 if __name__ == '__main__':
@@ -372,46 +417,7 @@ if __name__ == '__main__':
     print(f'Pearson correlation coefficient:\t{result[0]}\t\t\tp-value:\t{result[1]}')
 
     # Determine if the correlation coefficient is statistically significant
-    # def BivariateNormalCheck(x):
-    '''
-    Check if the variables have a bivariate normal distribution
-    x: input dataframe
-    '''
-    # Extract useful data
-    x1 = df['total'].to_numpy()
-    x1 = x1.reshape((len(x1),1))
-    x2 = df['step_number'].to_numpy()
-    x2 = x2.reshape((len(x2),1))
-    x = np.stack((x1, x2), axis=1).T 
-    x = x.reshape((2,len(x1)))
-
-    # Compute the inverse covariance matrix and the mean
-    covInv = np.linalg.pinv(np.cov(x))
-    mu = [x[0].mean(), x[1].mean()]
-    x = x.T
-
-    # Compute squared Mahalanobis distance
-    mahaDis = []
-    for i in x:
-        mahaDis.append(spatial.distance.mahalanobis(i.tolist(), mu, VI=covInv))
-    mahaDis = np.asarray(mahaDis)
-    mahaDis = np.square(mahaDis).tolist()
-    mahaDis.sort()
     
-    # Generate a Chi-square distribution
-    np.random.seed(7)
-    chi2 = np.random.chisquare(df=len(df)-1, size=len(df))
-    chi2Q = [np.quantile(chi2, i/len(df)) for i in range(0, len(df))]
-    
-    # Plot the Chi-square QQ Plot
-    plt.figure(figsize=(12,9))
-    sns.scatterplot(x=mahaDis, y=chi2Q)
-
-    plt.xlabel('Squared Mahalanobis Distance')
-    plt.ylabel('Chi-Square Quantile')
-    plt.yticks(ticks=[i for i in range(round(min(chi2Q)),math.ceil(max(chi2Q)),69)], labels=[i for i in range(0,11)])
-    
-    plt.tight_layout()
-    plt.show()
+    GammaQQPlot(pd.read_csv('./differences.csv'), 1)
 
     pass
