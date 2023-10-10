@@ -10,6 +10,7 @@ import pandas as pd
 import numpy as np
 import dtale
 
+import math
 from scipy import stats, spatial
 from sklearn import preprocessing
 
@@ -395,6 +396,7 @@ if __name__ == '__main__':
         mahaDis.append(spatial.distance.mahalanobis(i.tolist(), mu, VI=covInv))
     mahaDis = np.asarray(mahaDis)
     mahaDis = np.square(mahaDis).tolist()
+    mahaDis.sort()
     
     # Generate a Chi-square distribution
     np.random.seed(7)
@@ -404,13 +406,12 @@ if __name__ == '__main__':
     # Plot the Chi-square QQ Plot
     plt.figure(figsize=(12,9))
     sns.scatterplot(x=mahaDis, y=chi2Q)
-    plt.show()
-   
 
-    # stpStd = preprocessing(df.step_number)
-    # totalStd = preprocessing(df.total)
-    # result = stats.pearsonr(stpStd, totalStd)
-    # print(result)
-    # stats.ttest_ind(stpStd, totalStd, equal_var=True)
+    plt.xlabel('Squared Mahalanobis Distance')
+    plt.ylabel('Chi-Square Quantile')
+    plt.yticks(ticks=[i for i in range(round(min(chi2Q)),math.ceil(max(chi2Q)),69)], labels=[i for i in range(0,11)])
+    
+    plt.tight_layout()
+    plt.show()
 
     pass
