@@ -417,7 +417,10 @@ if __name__ == '__main__':
     print(f'Pearson correlation coefficient:\t{result[0]}\t\t\tp-value:\t{result[1]}')
 
     # Determine if the correlation coefficient is statistically significant
-    
-    GammaQQPlot(pd.read_csv('./differences.csv'), 1)
+    usrAns = False
+    if usrAns:
+        GammaQQPlot(pd.read_csv('./differences.csv'), 1)
+    else:
+        print('---------- Skip Gamme QQ Plot ----------'n)
 
     pass
