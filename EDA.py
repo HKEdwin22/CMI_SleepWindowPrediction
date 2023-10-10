@@ -406,8 +406,10 @@ if __name__ == '__main__':
     if usrAns:
         plt.figure(figsize=(16,9))
         sns.scatterplot(x='total', y='step_number', data=df)
-        plt.xlabel('Total Sleep Duration (mins)')
-        plt.ylabel('Number of Steps (in a sleep window per night)')
+        plt.yticks(fontsize=16)
+        plt.xticks(fontsize=16)
+        plt.xlabel('Total Sleep Duration (mins)', fontsize=16)
+        plt.ylabel('Number of Steps (in a sleep window per night)', fontsize=16)
 
         plt.tight_layout()
         plt.show()
@@ -421,6 +423,6 @@ if __name__ == '__main__':
     if usrAns:
         GammaQQPlot(pd.read_csv('./differences.csv'), 1)
     else:
-        print('---------- Skip Gamme QQ Plot ----------'n)
+        print('---------- Skip Gamme QQ Plot ----------\n')
 
     pass
