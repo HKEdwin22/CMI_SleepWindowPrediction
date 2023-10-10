@@ -10,7 +10,7 @@ import pandas as pd
 import numpy as np
 import dtale
 
-from scipy import stats
+from scipy import stats, spatial
 from sklearn import preprocessing
 
 import seaborn as sns
@@ -371,7 +371,24 @@ if __name__ == '__main__':
     print(f'Pearson correlation coefficient:\t{result[0]}\t\t\tp-value:\t{result[1]}')
 
     # Determine if the correlation coefficient is statistically significant
-    plt.plot(df.total, df.step_num)
+    # def BivariateNormalCheck(x):
+    '''
+    Check if the variables have a bivariate normal distribution
+    x: input dataframe
+    '''
+    x1 = df['total'].to_numpy()
+    x1 = x1.reshape((len(x1),1))
+    x2 = df['step_number'].to_numpy()
+    x2 = x2.reshape((len(x2),1))
+    x = np.stack((x1, x2), axis=1)
+
+    np.random.seed(7)
+    chi2 = np.random.chisquare(df=len(df))
+    chi2Q = [np.quantile(chi2, i) for i in range(0, 1, len(df))]
+    covInv = np.linalg.pinv(n)
+    
+    mahaDis = spatial.distance.mahalanobis(x[0], x[1], VI=covInv)
+    print(mahaDis)
 
     # stpStd = preprocessing(df.step_number)
     # totalStd = preprocessing(df.total)
