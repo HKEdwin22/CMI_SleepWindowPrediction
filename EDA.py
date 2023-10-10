@@ -389,10 +389,12 @@ if __name__ == '__main__':
     mu = [x[0].mean(), x[1].mean()]
     x = x.T
 
-    # Compute Mahalanobis distance
+    # Compute squared Mahalanobis distance
     mahaDis = []
     for i in x:
         mahaDis.append(spatial.distance.mahalanobis(i.tolist(), mu, VI=covInv))
+    mahaDis = np.asarray(mahaDis)
+    mahaDis = np.square(mahaDis).tolist()
     
     # Generate a Chi-square distribution
     np.random.seed(7)
