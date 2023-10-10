@@ -10,9 +10,7 @@ import pandas as pd
 import numpy as np
 import dtale
 
-import math
 from scipy import stats, spatial
-from sklearn import preprocessing
 
 import seaborn as sns
 import matplotlib.pyplot as plt
