@@ -376,19 +376,34 @@ if __name__ == '__main__':
     Check if the variables have a bivariate normal distribution
     x: input dataframe
     '''
+    # Extract useful data
     x1 = df['total'].to_numpy()
     x1 = x1.reshape((len(x1),1))
     x2 = df['step_number'].to_numpy()
     x2 = x2.reshape((len(x2),1))
-    x = np.stack((x1, x2), axis=1)
+    x = np.stack((x1, x2), axis=1).T 
+    x = x.reshape((2,len(x1)))
 
-    np.random.seed(7)
-    chi2 = np.random.chisquare(df=len(df))
-    chi2Q = [np.quantile(chi2, i) for i in range(0, 1, len(df))]
-    covInv = np.linalg.pinv(n)
+    # Compute the inverse covariance matrix and the mean
+    covInv = np.linalg.pinv(np.cov(x))
+    mu = [x[0].mean(), x[1].mean()]
+    x = x.T
+
+    # Compute Mahalanobis distance
+    mahaDis = []
+    for i in x:
+        mahaDis.append(spatial.distance.mahalanobis(i.tolist(), mu, VI=covInv))
     
-    mahaDis = spatial.distance.mahalanobis(x[0], x[1], VI=covInv)
-    print(mahaDis)
+    # Generate a Chi-square distribution
+    np.random.seed(7)
+    chi2 = np.random.chisquare(df=len(df)-1, size=len(df))
+    chi2Q = [np.quantile(chi2, i/len(df)) for i in range(0, len(df))]
+    
+    # Plot the Chi-square QQ Plot
+    plt.figure(figsize=(12,9))
+    sns.scatterplot(x=mahaDis, y=chi2Q)
+    plt.show()
+   
 
     # stpStd = preprocessing(df.step_number)
     # totalStd = preprocessing(df.total)
