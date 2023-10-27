@@ -44,25 +44,6 @@ def DescriptiveStat(x, t):
 
     return df
 
-def ReadParquet(x):
-    '''
-    Load a parquet file and return a panda dataframe
-    x : input dataset
-    '''
-    y = pl.scan_parquet(x, n_rows=15000)
-                # .with_columns(
-                #     (
-                #         (pl.col("timestamp").str.strptime(pl.Datetime, "%Y-%m-%dT%H:%M:%S%Z")),
-                #         (pl.col("timestamp").str.strptime(pl.Datetime, "%Y-%m-%dT%H:%M:%S%Z").dt.year().alias("year")),
-                #         (pl.col("timestamp").str.strptime(pl.Datetime, "%Y-%m-%dT%H:%M:%S%Z").dt.month().alias("month")),
-                #         (pl.col("timestamp").str.strptime(pl.Datetime, "%Y-%m-%dT%H:%M:%S%Z").dt.day().alias("day")),
-                #         (pl.col("timestamp").str.strptime(pl.Datetime, "%Y-%m-%dT%H:%M:%S%Z").dt.hour().alias("hour")),
-                #     )
-                # )
-    y = y.collect()
-    
-    return y.to_pandas()
-
 class IdentifyContradictions:
 
     def __init__(self, x) -> None:
@@ -351,10 +332,6 @@ if __name__ == '__main__':
     # Looking into the details of the raw data
     usrAns = False
     LookIntoDetail if usrAns else print('---------- Skip the detail of the raw dataset ----------')
-
-    # Load train_series.parquet
-    # file = './train_series.parquet'
-    # ReadParquet(file)
 
     '''
     Determining the time interval
