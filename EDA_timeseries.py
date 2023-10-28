@@ -56,19 +56,10 @@ def LoadParquet(f):
 
    return dfPl
 
-# Main program
-if __name__ == '__main__':
-    
-   # Change directory to load the data
-   myDir = es.ChangeDir()
-
-   usrAns = False
-   if usrAns:
-      CheckId()
-
-   if usrAns:
-      LoadParquet('./train_series.parquet')
-   
+def StepOfInt():
+   '''
+   Identify steps of interest
+   '''
    df = pd.read_csv('./trE_cont_nights.csv', index_col=0)
    df = df[(df.max_cont_night >= 7) & (df.empt_night != '[]')]
 
@@ -100,6 +91,24 @@ if __name__ == '__main__':
 
    df.to_csv('./sleepLog_stepWanted.csv')
 
+
+# Main program
+if __name__ == '__main__':
+    
+   # Change directory to load the data
+   myDir = es.ChangeDir()
+
+   usrAns = False
+   if usrAns:
+      CheckId()
+
+   if usrAns:
+      LoadParquet('./train_series.parquet')
+
+   if usrAns:
+      StepOfInt()
+   
+   
    # data_transforms = [
       # pl.col('series_id').cast(pl.UInt32)
    #    pl.col('anglez').round(0).cast(pl.Int8)
