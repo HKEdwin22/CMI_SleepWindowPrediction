@@ -61,31 +61,35 @@ def StepOfInt():
    Identify steps of interest
    '''
    df = pd.read_csv('./trE_cont_nights.csv', index_col=0)
-   df = df[(df.max_cont_night >= 7) & (df.empt_night != '[]')]
+   df = df[(df.max_cont_night >= 7)]
 
    for row in df.index:      
       daysWanted = []
       maxStep = df.at[row, 'step_num']
       mtNights = df.at[row, 'empt_night']
       mtNights = mtNights.strip('][').split(', ')
-      mtNights = [int(i) for i in mtNights]
       
-      if len(mtNights) == 1:
-         if mtNights[0] == 1:
-            daysWanted.append(f'1 to {maxStep}')
-         else:
-            if mtNights[0] - 1 >= 7:
-               daysWanted.append(f'1 to {mtNights[0]}')
-            if maxStep - mtNights[0] >= 7:
-               daysWanted.append(f'{mtNights[0]} to {maxStep}')
+      if mtNights[0] == '':
+         daysWanted = 'all'
       else:
-         for i in reversed(range(len(mtNights))):
-            if i > 0:
-               if mtNights[i] - mtNights[i-1] >= 7:
-                  daysWanted.append(f'{mtNights[i-1]+1} to {mtNights[i]-1}')
+         mtNights = [int(i) for i in mtNights]
+
+         if len(mtNights) == 1:
+            if mtNights[0] == 1:
+               daysWanted.append(f'1 to {maxStep}')
             else:
-               if mtNights[i] - 1 >= 7:
-                  daysWanted.append(f'1 to {mtNights[i]-1}')
+               if mtNights[0] - 1 >= 7:
+                  daysWanted.append(f'1 to {mtNights[0]}')
+               if maxStep - mtNights[0] >= 7:
+                  daysWanted.append(f'{mtNights[0]} to {maxStep}')
+         else:
+            for i in reversed(range(len(mtNights))):
+               if i > 0:
+                  if mtNights[i] - mtNights[i-1] >= 7:
+                     daysWanted.append(f'{mtNights[i-1]+1} to {mtNights[i]-1}')
+               else:
+                  if mtNights[i] - 1 >= 7:
+                     daysWanted.append(f'1 to {mtNights[i]-1}')
 
       df.at[row, 'nights_wanted'] = daysWanted
 
@@ -101,13 +105,14 @@ if __name__ == '__main__':
    usrAns = False
    if usrAns:
       CheckId()
-
-   if usrAns:
-      LoadParquet('./train_series.parquet')
-
-   if usrAns:
       StepOfInt()
+
+   df = LoadParquet('./train_series.parquet')
+   StepOfInt()
    
+   '''
+   Extract period of interest for involved accelerometers
+   '''
    
    # data_transforms = [
       # pl.col('series_id').cast(pl.UInt32)
