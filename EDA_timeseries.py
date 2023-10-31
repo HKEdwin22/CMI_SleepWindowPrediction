@@ -56,17 +56,17 @@ def LoadParquet(f):
 
    return dfPl
 
-def StepOfInt():
+def StepOfInt(x):
    '''
    Identify steps of interest
+   x : input dataframe (./trE_cont_nights.csv)
    '''
-   df = pd.read_csv('./trE_cont_nights.csv', index_col=0)
-   df = df[(df.max_cont_night >= 7)]
+   x = x[(x.max_cont_night >= 7)]
 
-   for row in df.index:      
+   for row in x.index:      
       daysWanted = []
-      maxStep = df.at[row, 'step_num']
-      mtNights = df.at[row, 'empt_night']
+      maxStep = x.at[row, 'step_num']
+      mtNights = x.at[row, 'empt_night']
       mtNights = mtNights.strip('][').split(', ')
       
       if mtNights[0] == '':
@@ -91,9 +91,9 @@ def StepOfInt():
                   if mtNights[i] - 1 >= 7:
                      daysWanted.append(f'1 to {mtNights[i]-1}')
 
-      df.at[row, 'nights_wanted'] = daysWanted
+      x.at[row, 'nights_wanted'] = daysWanted
 
-   df.to_csv('./sleepLog_stepWanted.csv')
+   x.to_csv('./sleepLog_stepWanted.csv')
 
 
 # Main program
@@ -105,10 +105,10 @@ if __name__ == '__main__':
    usrAns = False
    if usrAns:
       CheckId()
-      StepOfInt()
+      StepOfInt() # trE_cont_nights.csv needed
 
-   df = LoadParquet('./train_series.parquet')
-   StepOfInt()
+   dfts = LoadParquet('./train_series.parquet')
+   df = pd.read_csv('./sleepLog_stepWanted.csv', index_col=0)
    
    '''
    Extract period of interest for involved accelerometers
