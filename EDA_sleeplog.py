@@ -110,6 +110,7 @@ class IdentifyContradictions:
             mt_night = gp[gp.sid == sid]['empt_night'].values[0]
 
             if bool(mt_night) == True:
+                con_night = 0
                 for i in range(len(mt_night)):
                     if mt_night[i] != 1:
                         if i == 0:
@@ -375,7 +376,6 @@ if __name__ == '__main__':
     print('\n---------- Finished reading train_events.csv ----------')
 
     # Looking into the details of the raw data
-    usrAns = False
     LookIntoDetail if usrAns else print('---------- Skip the detail of the raw dataset ----------')
 
     '''
@@ -390,9 +390,9 @@ if __name__ == '__main__':
 
     # Looking into the dataset
     dfNoContra['max_cont_night'].describe()
-    percent = pd.DataFrame({'Day': [dfNoContra['max_cont_night'].quantile(.3156), dfNoContra['max_cont_night'].quantile(0.4149)], 
-                            'Percentage' : [1-0.3156, 1-0.4129],
-                            'Number of Samples': [277*(1-0.3156), 277*(1-0.4129)]
+    percent = pd.DataFrame({'Day': [dfNoContra['max_cont_night'].quantile(.3250), dfNoContra['max_cont_night'].quantile(0.4250)], 
+                            'Percentage' : [1-0.3250, 1-0.4250],
+                            'Number of Samples': [277*(1-0.3250), 277*(1-0.4250)]
                             })
     print(percent)
 
