@@ -3,6 +3,7 @@ import EDA_sleeplog as es
 import polars as pl
 import pandas as pd
 import numpy as np
+from datetime import datetime
 
 def CheckId():
    '''
@@ -68,7 +69,7 @@ if __name__ == '__main__':
    if usrAns:
       CheckId()
 
-   dfts = LoadParquet('./train_series.parquet', 100)
+   dfts = LoadParquet('./train_series.parquet', 2000000)
    df = pd.read_csv('./sleepLog_stepWanted.csv')
    
    '''
@@ -77,20 +78,18 @@ if __name__ == '__main__':
    dftsNew = dfts.clone().clear()
    for sid in dfts['series_id'].unique():
       if sid in df['sid'].values:
-         nights = df[df.sid == sid].nights_wanted.values[0]
-         if nights == 'all':
-            dftsNew.vstack(dfts.filter(dfts['series_id'] == sid))
-         else:
-            if ',' in nights:
-               nights = nights.strip('][').split(', ') # case 1: "['21 to 28', '6 to 19']"
-               for n in range(len(nights)):
-                  nights[n] = nights[n].strip('\'') # ['21 to 28', '6 to 19']
-               for n in nights:
-                  nightPair = n.strip('][\'').split(' to ') # case 2: "['15 to 29']" or item of handled case 1
-                  dftsNew.vstack(dfts.filter((dfts['series_id'] == sid) & (dfts['step'] >= int(nightPair[0])) & (dfts['step'] <= int(nightPair[1]))), in_place=True)
-            else:
-               nightPair = nights.strip('][\'').split(' to ') # case 2: "['15 to 29']" or item of handled case 1
-               dftsNew.vstack(dfts.filter((dfts['series_id'] == sid) & (dfts['step'] >= int(nightPair[0])) & (dfts['step'] <= int(nightPair[1]))), in_place=True)
+         start = datetime.strptime(df[df.sid == sid]['start'].values[0], "%Y-%m-%dT%H:%M:%S%z")
+         start = start.replace(tzinfo=None)
+         end = datetime.strptime(df[df.sid == sid]['end'].values[0], "%Y-%m-%dT%H:%M:%S%z")
+         end = end.replace(tzinfo=None)
+
+         dftsNew.vstack(dfts.filter
+                        (
+                           (pl.col('series_id') == sid) &
+                           (pl.col('timestamp') >= start) & 
+                           (pl.col('timestamp') <= end)
+                        ),
+                        in_place=True)
    dftsNew.write_parquet('./sidOfInterest.parquet')
 
       
