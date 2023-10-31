@@ -8,6 +8,7 @@ import re
 import polars as pl
 import pandas as pd
 import numpy as np
+import math
 import dtale
 
 from scipy import stats, spatial
@@ -313,6 +314,50 @@ def GammaQQPlot(df, dof):
     plt.tight_layout()
     plt.show()
 
+def StepOfInt(x):
+   '''
+   Identify steps of interest
+   x : input dataframe (./trE_cont_nights.csv)
+   '''
+   x = x[(x.max_cont_night >= 7)]
+
+   for row in x.index:      
+      daysWanted = []
+      maxStep = x.at[row, 'step_num']
+      mtNights = x.at[row, 'empt_night']
+      mtNights = mtNights.strip('][').split(', ')
+      
+      if mtNights[0] == '':
+         daysWanted = 'all'
+      else:
+         mtNights = [int(i) for i in mtNights]
+
+         if len(mtNights) == 1:
+            if mtNights[0] == 1:
+               daysWanted.append(f'1 to {maxStep}')
+            else:
+               if mtNights[0] - 1 >= 7:
+                  daysWanted.append(f'1 to {mtNights[0]}')
+               if maxStep - mtNights[0] >= 7:
+                  daysWanted.append(f'{mtNights[0]} to {maxStep}')
+         else:
+            for i in reversed(range(len(mtNights))):
+               if i+1 == len(mtNights):
+                  if x.at[row, 'max_night'] - mtNights[i] >= 7:
+                     daysWanted.append(f'{mtNights[i]+1} to {x.at[row, "max_night"]}')
+                  if mtNights[i] - mtNights[i-1] >= 7:
+                     daysWanted.append(f'{mtNights[i-1]+1} to {mtNights[i]-1}')
+               elif i > 0:
+                  if mtNights[i] - mtNights[i-1] >= 7:
+                     daysWanted.append(f'{mtNights[i-1]+1} to {mtNights[i]-1}')
+               else:
+                  if mtNights[i] - 1 >= 7:
+                     daysWanted.append(f'1 to {mtNights[i]-1}')
+
+      x.at[row, 'nights_wanted'] = daysWanted
+
+   x.to_csv('./sleepLog_stepWanted.csv')
+
 
 # Main program
 if __name__ == '__main__':
@@ -350,6 +395,11 @@ if __name__ == '__main__':
                             'Number of Samples': [277*(1-0.3156), 277*(1-0.4129)]
                             })
     print(percent)
+
+    # Identify Nights of Interest
+    if usrAns:
+        df = pd.read_csv('./TrE_cont_nights.csv', index_col=0)
+        StepOfInt(df)
 
     '''
     Exploiting the dataset
@@ -399,5 +449,38 @@ if __name__ == '__main__':
         GammaQQPlot(pd.read_csv('./differences.csv'), 1)
     else:
         print('---------- Skip Gamme QQ Plot ----------\n')
+
+    '''
+    Extract nights of interests and save in 'trE_cont_nights.csv'
+    '''
+    dfTrainEvents = pd.read_csv('./train_events_replacement.csv')
+    
+    df = pd.read_csv('./sleepLog_stepWanted.csv')
+    for sid in df['sid']:        
+        idx = df[df['sid'] == sid].index[0]
+        nights = df[df.sid == sid].nights_wanted.values[0]
+
+        if nights == 'all':
+            df.loc[idx, 'start'] = min(dfTrainEvents[dfTrainEvents.series_id == sid]['night'])
+            df.loc[idx, 'end'] = max(dfTrainEvents[dfTrainEvents.series_id == sid]['night'])
+        else:
+            # accelerometers with at least 2 periods of interest
+            if ',' in nights:
+                nights = nights.strip('][').split(', ') # case 1: "['21 to 28', '6 to 19']"
+                for n in range(len(nights)):
+                    nights[n] = nights[n].strip('\'') # ['21 to 28', '6 to 19']
+                for n in nights:
+                    nightPair = n.strip('][\'').split(' to ') # case 2: "['15 to 29']" or item of handled case 1
+                    nightPair = list(map(int, nightPair))
+                    nightPair = [math.ceil(i/2) for i in nightPair]
+                    df.loc[idx, 'start'] = dfTrainEvents[(dfTrainEvents['series_id'] == sid) & (dfTrainEvents['night'] == int(nightPair[0]))]['timestamp'].values[0]
+                    df.loc[idx, 'end_day'] = dfTrainEvents[(dfTrainEvents['series_id'] == sid) & (dfTrainEvents['night'] == int(nightPair[1]))]['timestamp'].values[1]
+            # accelerometers with only 1 period of interest
+            else:
+                nightPair = nights.strip('][\'').split(' to ') # case 2: "['15 to 29']" or item of handled case 1
+                nightPair = list(map(int, nightPair))
+                nightPair = [math.ceil(i/2) for i in nightPair]
+                df.loc[idx, 'start'] = dfTrainEvents[(dfTrainEvents['series_id'] == sid) & (dfTrainEvents['night'] == int(nightPair[0]))]['timestamp'].values[0]
+                df.loc[idx, 'end_day'] = dfTrainEvents[(dfTrainEvents['series_id'] == sid) & (dfTrainEvents['night'] == int(nightPair[1]))]['timestamp'].values[1]
 
     pass
