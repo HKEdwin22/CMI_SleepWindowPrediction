@@ -69,7 +69,7 @@ if __name__ == '__main__':
    if usrAns:
       CheckId()
 
-   dfts = LoadParquet('./train_series.parquet', 2000000)
+   dfts = LoadParquet('./train_series.parquet', None)
    df = pd.read_csv('./sleepLog_stepWanted.csv')
    
    '''
