@@ -486,6 +486,5 @@ if __name__ == '__main__':
         StepOfInt(df)
         TimeOfInt()
 
-    
 
     pass

@@ -68,12 +68,11 @@ if __name__ == '__main__':
    if usrAns:
       CheckId()
 
-   dfts = LoadParquet('./train_series.parquet', 1000)
-   df = pd.read_csv('./sleepLog_stepWanted.csv', index_col=0)
-   dfDateTime = pd.read_csv('./trE_replacement_ExtDateTime.csv', index_col=0)
+   dfts = LoadParquet('./train_series.parquet', 100)
+   df = pd.read_csv('./sleepLog_stepWanted.csv')
    
    '''
-   Extract period of interest for involved accelerometers
+   Extract data of interest from .parquet file
    '''
    dftsNew = dfts.clone().clear()
    for sid in dfts['series_id'].unique():
