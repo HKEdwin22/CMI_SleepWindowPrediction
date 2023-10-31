@@ -32,13 +32,14 @@ def PrtAllCols(x, n_col):
       cfg.set_tbl_cols(n_col)
       print(x)
 
-def LoadParquet(f):
+def LoadParquet(f, n=None):
    '''
    Load the parquet time series data and return the Polars dataframe
-   f = file name
+   f : file name
+   n : max rows to be loaded
    '''
 
-   dfPl = pl.scan_parquet(f).with_columns(
+   dfPl = pl.scan_parquet(f, n_rows=n).with_columns(
       (
          (pl.col('step').cast(pl.UInt32)),
          (pl.col("timestamp").str.strptime(pl.Datetime, "%Y-%m-%dT%H:%M:%S%Z")),
@@ -107,13 +108,33 @@ if __name__ == '__main__':
       CheckId()
       StepOfInt() # trE_cont_nights.csv needed
 
-   dfts = LoadParquet('./train_series.parquet')
+   dfts = LoadParquet('./train_series.parquet', 1000)
    df = pd.read_csv('./sleepLog_stepWanted.csv', index_col=0)
    
    '''
    Extract period of interest for involved accelerometers
    '''
-   
+   dftsNew = dfts.clone().clear()
+   for sid in dfts['series_id'].unique():
+      if sid in df['sid'].values:
+         nights = df[df.sid == sid].nights_wanted.values[0]
+         if nights == 'all':
+            dftsNew.vstack(dfts.filter(dfts['series_id'] == sid))
+         else:
+            if ',' in nights:
+               nights = nights.strip('][').split(', ') # case 1: "['21 to 28', '6 to 19']"
+               for n in range(len(nights)):
+                  nights[n] = nights[n].strip('\'') # ['21 to 28', '6 to 19']
+               for n in nights:
+                  nightPair = n.strip('][\'').split(' to ') # case 2: "['15 to 29']" or item of handled case 1
+                  dftsNew.vstack(dfts.filter((dfts['series_id'] == sid) & (dfts['step'] >= int(nightPair[0])) & (dfts['step'] <= int(nightPair[1]))), in_place=True)
+            else:
+               nightPair = nights.strip('][\'').split(' to ') # case 2: "['15 to 29']" or item of handled case 1
+               dftsNew.vstack(dfts.filter((dfts['series_id'] == sid) & (dfts['step'] >= int(nightPair[0])) & (dfts['step'] <= int(nightPair[1]))), in_place=True)
+   dftsNew.write_parquet('./sidOfInterest.parquet')
+
+      
+
    # data_transforms = [
       # pl.col('series_id').cast(pl.UInt32)
    #    pl.col('anglez').round(0).cast(pl.Int8)
