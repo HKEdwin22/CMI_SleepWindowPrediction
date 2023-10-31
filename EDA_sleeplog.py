@@ -324,7 +324,7 @@ def StepOfInt(x):
 
    for row in x.index:      
       daysWanted = []
-      maxStep = x.at[row, 'step_num']
+      maxStep = x.at[row, 'max_night']
       mtNights = x.at[row, 'empt_night']
       mtNights = mtNights.strip('][').split(', ')
       
@@ -335,12 +335,12 @@ def StepOfInt(x):
 
          if len(mtNights) == 1:
             if mtNights[0] == 1:
-               daysWanted.append(f'1 to {maxStep}')
+               daysWanted.append(f'2 to {maxStep}')
             else:
                if mtNights[0] - 1 >= 7:
-                  daysWanted.append(f'1 to {mtNights[0]}')
+                  daysWanted.append(f'1 to {mtNights[0]-1}')
                if maxStep - mtNights[0] >= 7:
-                  daysWanted.append(f'{mtNights[0]} to {maxStep}')
+                  daysWanted.append(f'{mtNights[0]+1} to {maxStep}')
          else:
             for i in reversed(range(len(mtNights))):
                if i+1 == len(mtNights):
@@ -357,7 +357,45 @@ def StepOfInt(x):
 
       x.at[row, 'nights_wanted'] = daysWanted
 
-   x.to_csv('./sleepLog_stepWanted.csv')
+   x.to_csv('./sleepLog_stepWanted.csv', index=False)
+
+def TimeOfInt():
+    '''
+    Extract nights of interests and save in 'sleepLog_stepWanted.csv'
+    '''
+    dfTrainEvents = pd.read_csv('./train_events_replacement.csv')
+    df = pd.read_csv('./sleepLog_stepWanted.csv')
+    
+    for sid in df['sid']:        
+        idx = df[df['sid'] == sid].index[0]
+        nights = df[df.sid == sid].nights_wanted.values[0]
+
+        if nights == 'all':
+            minNight = min(dfTrainEvents[dfTrainEvents.series_id == sid]['night'])
+            maxNight = max(dfTrainEvents[dfTrainEvents.series_id == sid]['night'])
+            df.loc[idx, 'start'] = dfTrainEvents[(dfTrainEvents['series_id'] == sid) & (dfTrainEvents['night'] == minNight)]['timestamp'].values[0]
+            df.loc[idx, 'end'] = dfTrainEvents[(dfTrainEvents['series_id'] == sid) & (dfTrainEvents['night'] == maxNight)]['timestamp'].values[1]
+        else:
+            # accelerometers with at least 2 periods of interest
+            if ',' in nights:
+                nights = nights.strip('][').split(', ') # case 1: "['21 to 28', '6 to 19']"
+                for n in range(len(nights)):
+                    nights[n] = nights[n].strip('\'') # ['21 to 28', '6 to 19']
+                for n in nights:
+                    nightPair = n.strip('][\'').split(' to ') # case 2: "['15 to 29']" or item of handled case 1
+                    # nightPair = list(map(int, nightPair))
+                    # nightPair = [math.ceil(i/2) for i in nightPair]
+                    df.loc[idx, 'start'] = dfTrainEvents[(dfTrainEvents['series_id'] == sid) & (dfTrainEvents['night'] == int(nightPair[0]))]['timestamp'].values[0]
+                    df.loc[idx, 'end'] = dfTrainEvents[(dfTrainEvents['series_id'] == sid) & (dfTrainEvents['night'] == int(nightPair[1]))]['timestamp'].values[1]
+            # accelerometers with only 1 period of interest
+            else:
+                nightPair = nights.strip('][\'').split(' to ') # case 2: "['15 to 29']" or item of handled case 1
+                # nightPair = list(map(int, nightPair))
+                # nightPair = [math.ceil(i/2) for i in nightPair]
+                df.loc[idx, 'start'] = dfTrainEvents[(dfTrainEvents['series_id'] == sid) & (dfTrainEvents['night'] == int(nightPair[0]))]['timestamp'].values[0]
+                df.loc[idx, 'end'] = dfTrainEvents[(dfTrainEvents['series_id'] == sid) & (dfTrainEvents['night'] == int(nightPair[1]))]['timestamp'].values[1]
+
+    df.to_csv('./sleepLog_stepWanted.csv', index=False)
 
 
 # Main program
@@ -381,25 +419,21 @@ if __name__ == '__main__':
     '''
     Determining the time interval
     '''
-    # Identify the contradictory steps and timestamps
-    Int = IdentifyContradictions(df)
-    Int.contradictions()
-    Int.nightsNoRecord()
-    dfNoContra = Int.replacedDF
-    print('---------- Dataset has no more contradiction ----------')
-
-    # Looking into the dataset
-    dfNoContra['max_cont_night'].describe()
-    percent = pd.DataFrame({'Day': [dfNoContra['max_cont_night'].quantile(.3250), dfNoContra['max_cont_night'].quantile(0.4250)], 
-                            'Percentage' : [1-0.3250, 1-0.4250],
-                            'Number of Samples': [277*(1-0.3250), 277*(1-0.4250)]
-                            })
-    print(percent)
-
-    # Identify Nights of Interest
     if usrAns:
-        df = pd.read_csv('./TrE_cont_nights.csv', index_col=0)
-        StepOfInt(df)
+        # Identify the contradictory steps and timestamps
+        Int = IdentifyContradictions(df)
+        Int.contradictions()
+        Int.nightsNoRecord()
+        dfNoContra = Int.replacedDF
+        print('---------- Dataset has no more contradiction ----------')
+
+        # Looking into the dataset
+        dfNoContra['max_cont_night'].describe()
+        percent = pd.DataFrame({'Day': [dfNoContra['max_cont_night'].quantile(.3250), dfNoContra['max_cont_night'].quantile(0.4250)], 
+                                'Percentage' : [1-0.3250, 1-0.4250],
+                                'Number of Samples': [277*(1-0.3250), 277*(1-0.4250)]
+                                })
+        print(percent)
 
     '''
     Exploiting the dataset
@@ -407,7 +441,6 @@ if __name__ == '__main__':
     dfUTC = ExtractDateTime('./train_events_replacement.csv')
 
     # Check missing values
-    usrAns = False
     if usrAns:
         dfRaw, dfContN, missVal = CheckMissingVal('./train_events.csv')   
         print('---------- Missing nights checked ----------\n')
@@ -416,7 +449,6 @@ if __name__ == '__main__':
         missVal = []
 
     # Compute the number of steps for each night and store in a new dataframe
-    usrAns = False
     if usrAns:
         dfDiff = ComputeStepSleep(dfNoContra, dfUTC, df, missVal)
         DecomposeTimeDelta(dfDiff)
@@ -427,7 +459,6 @@ if __name__ == '__main__':
     df = pd.read_csv('./differences.csv', index_col=0)
 
     # Visualise the relation between the number of steps and total sleep duration
-    usrAns = False
     if usrAns:
         plt.figure(figsize=(16,9))
         sns.scatterplot(x='total', y='step_number', data=df)
@@ -444,43 +475,17 @@ if __name__ == '__main__':
     print(f'Pearson correlation coefficient:\t{result[0]}\t\t\tp-value:\t{result[1]}')
 
     # Determine if the correlation coefficient is statistically significant
-    usrAns = False
     if usrAns:
         GammaQQPlot(pd.read_csv('./differences.csv'), 1)
     else:
         print('---------- Skip Gamme QQ Plot ----------\n')
 
-    '''
-    Extract nights of interests and save in 'trE_cont_nights.csv'
-    '''
-    dfTrainEvents = pd.read_csv('./train_events_replacement.csv')
-    
-    df = pd.read_csv('./sleepLog_stepWanted.csv')
-    for sid in df['sid']:        
-        idx = df[df['sid'] == sid].index[0]
-        nights = df[df.sid == sid].nights_wanted.values[0]
+    # Identify Nights of Interest
+    if usrAns:
+        df = pd.read_csv('./TrE_cont_nights.csv', index_col=0)
+        StepOfInt(df)
+        TimeOfInt()
 
-        if nights == 'all':
-            df.loc[idx, 'start'] = min(dfTrainEvents[dfTrainEvents.series_id == sid]['night'])
-            df.loc[idx, 'end'] = max(dfTrainEvents[dfTrainEvents.series_id == sid]['night'])
-        else:
-            # accelerometers with at least 2 periods of interest
-            if ',' in nights:
-                nights = nights.strip('][').split(', ') # case 1: "['21 to 28', '6 to 19']"
-                for n in range(len(nights)):
-                    nights[n] = nights[n].strip('\'') # ['21 to 28', '6 to 19']
-                for n in nights:
-                    nightPair = n.strip('][\'').split(' to ') # case 2: "['15 to 29']" or item of handled case 1
-                    nightPair = list(map(int, nightPair))
-                    nightPair = [math.ceil(i/2) for i in nightPair]
-                    df.loc[idx, 'start'] = dfTrainEvents[(dfTrainEvents['series_id'] == sid) & (dfTrainEvents['night'] == int(nightPair[0]))]['timestamp'].values[0]
-                    df.loc[idx, 'end_day'] = dfTrainEvents[(dfTrainEvents['series_id'] == sid) & (dfTrainEvents['night'] == int(nightPair[1]))]['timestamp'].values[1]
-            # accelerometers with only 1 period of interest
-            else:
-                nightPair = nights.strip('][\'').split(' to ') # case 2: "['15 to 29']" or item of handled case 1
-                nightPair = list(map(int, nightPair))
-                nightPair = [math.ceil(i/2) for i in nightPair]
-                df.loc[idx, 'start'] = dfTrainEvents[(dfTrainEvents['series_id'] == sid) & (dfTrainEvents['night'] == int(nightPair[0]))]['timestamp'].values[0]
-                df.loc[idx, 'end_day'] = dfTrainEvents[(dfTrainEvents['series_id'] == sid) & (dfTrainEvents['night'] == int(nightPair[1]))]['timestamp'].values[1]
+    
 
     pass
