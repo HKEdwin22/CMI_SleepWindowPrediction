@@ -75,22 +75,25 @@ if __name__ == '__main__':
    '''
    Extract data of interest from .parquet file
    '''
-   dftsNew = dfts.clone().clear()
-   for sid in dfts['series_id'].unique():
-      if sid in df['sid'].values:
-         start = datetime.strptime(df[df.sid == sid]['start'].values[0], "%Y-%m-%dT%H:%M:%S%z")
-         start = start.replace(tzinfo=None)
-         end = datetime.strptime(df[df.sid == sid]['end'].values[0], "%Y-%m-%dT%H:%M:%S%z")
-         end = end.replace(tzinfo=None)
+   dftsSID = dfts['series_id'].unique()
+   def ExtractTimeSeries():
+      dftsNew = dfts.clone().clear()
+      for sid in dftsSID:
+         if sid in df['sid'].values:
+            start = datetime.strptime(df[df.sid == sid]['start'].values[0], "%Y-%m-%dT%H:%M:%S%z")
+            start = start.replace(tzinfo=None)
+            end = datetime.strptime(df[df.sid == sid]['end'].values[0], "%Y-%m-%dT%H:%M:%S%z")
+            end = end.replace(tzinfo=None)
 
-         dftsNew.vstack(dfts.filter
-                        (
-                           (pl.col('series_id') == sid) &
-                           (pl.col('timestamp') >= start) & 
-                           (pl.col('timestamp') <= end)
-                        ),
-                        in_place=True)
-   dftsNew.write_parquet('./sidOfInterest.parquet')
+            dftsNew.vstack(dfts.filter
+                           (
+                              (pl.col('series_id') == sid) &
+                              (pl.col('timestamp') >= start) & 
+                              (pl.col('timestamp') <= end)
+                           ),
+                           in_place=True)
+         dfts = dfts.filter(pl.col('series_id') != sid)
+      dftsNew.write_parquet('./sidOfInterest.parquet')
 
       
 
