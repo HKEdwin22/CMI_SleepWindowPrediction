@@ -4,6 +4,7 @@ import polars as pl
 import pandas as pd
 import numpy as np
 from datetime import datetime
+import time
 
 def CheckId():
    '''
@@ -40,7 +41,7 @@ def LoadParquet(f, n=None):
    n : max rows to be loaded
    '''
 
-   dfPl = pl.scan_parquet(f, n_rows=n).with_columns(
+   lf = pl.scan_parquet(f, n_rows=n).with_columns(
       (
          (pl.col('step').cast(pl.UInt32)),
          (pl.col("timestamp").str.strptime(pl.Datetime, "%Y-%m-%dT%H:%M:%S%Z")),
@@ -52,11 +53,13 @@ def LoadParquet(f, n=None):
          (pl.col('anglez').round(0).cast(pl.Int8)),
          ((pl.col('enmo')*1e3).cast(pl.UInt16))
       )
-   ).collect()
+   )
+   
+   dfPl = lf.collect()
 
    PrtAllCols(dfPl.describe(), dfPl.width)
 
-   return dfPl
+   return lf
 
 
 # Main program
@@ -68,42 +71,52 @@ if __name__ == '__main__':
    usrAns = False
    if usrAns:
       CheckId()
-
-   dfts = LoadParquet('./train_series.parquet', None)
-   df = pd.read_csv('./sleepLog_stepWanted.csv')
    
+   start = time.time()
+
+   lf = LoadParquet('./train_series.parquet', None)
+   df = pd.read_csv('./sleepLog_stepWanted.csv')
+
+   dftsSID = lf.select('series_id').unique().collect().to_series().to_list()
+
    '''
    Extract data of interest from .parquet file
    '''
-   dftsSID = dfts['series_id'].unique()
-   def ExtractTimeSeries():
-      dftsNew = dfts.clone().clear()
-      for sid in dftsSID:
-         if sid in df['sid'].values:
-            start = datetime.strptime(df[df.sid == sid]['start'].values[0], "%Y-%m-%dT%H:%M:%S%z")
-            start = start.replace(tzinfo=None)
-            end = datetime.strptime(df[df.sid == sid]['end'].values[0], "%Y-%m-%dT%H:%M:%S%z")
-            end = end.replace(tzinfo=None)
+   def ExtractTimeSeries(x, x1, s):
+      '''
+      Extract data of interest from .parquet file
+      x : time series lazyframe
+      x1 : .csv dataframe ('./sleepLog_stepWanted.csv')
+      s : series_id of interest
+      '''
+      newTS = x.clone()
+      for sid in s:
+         if sid in x1['sid'].values:
+            start = datetime.strptime(x1[x1.sid == sid]['start'].values[0], "%Y-%m-%dT%H:%M:%S%z").replace(tzinfo=None)
+            end = datetime.strptime(x1[x1.sid == sid]['end'].values[0], "%Y-%m-%dT%H:%M:%S%z").replace(tzinfo=None)
 
-            dftsNew.vstack(dfts.filter
+            newTS.vstack(x.filter
                            (
                               (pl.col('series_id') == sid) &
                               (pl.col('timestamp') >= start) & 
                               (pl.col('timestamp') <= end)
                            ),
                            in_place=True)
-         dfts = dfts.filter(pl.col('series_id') != sid)
-      dftsNew.write_parquet('./sidOfInterest.parquet')
-
+            
+         x = x.filter(pl.col('series_id') != sid)
+      newTS.write_parquet('./sidOfInterest.parquet')
+   
+   
+   ExtractTimeSeries(lf, df, dftsSID[:3])
       
-
    # data_transforms = [
       # pl.col('series_id').cast(pl.UInt32)
    #    pl.col('anglez').round(0).cast(pl.Int8)
    #    (pl.col('enmo')*1000).cast(pl.UInt16)
    #    ]
    
-   
+   end = time.time()
+   print(f'Time of Execution : {end-start}')
 
    
 
