@@ -6,6 +6,10 @@ import numpy as np
 from datetime import datetime
 import time
 
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+# Function or Class
 def CheckId():
    '''
    Check if the accelerometers in train_series.parquet exist in train_events.csv
@@ -106,8 +110,35 @@ if __name__ == '__main__':
    # lf = LoadParquet('./train_series.parquet', None)
 
    startExe = time.time()
+
+   start = '2018-08-28T20:37:00-0400'
+   start = datetime.strptime(start, "%Y-%m-%dT%H:%M:%S%z").replace(tzinfo=None)
+   end = '2018-08-29T08:37:00-0400'
+   end = datetime.strptime(end, "%Y-%m-%dT%H:%M:%S%z").replace(tzinfo=None)
+   
+   lf = pl.scan_parquet('./ExtractedTimeSeries.parquet').filter(
+      (pl.col('series_id') == '038441c925bb') &
+      (pl.col('timestamp').str.strptime(pl.Datetime, "%Y-%m-%dT%H:%M:%S%Z") >= start) &
+      (pl.col('timestamp').str.strptime(pl.Datetime, "%Y-%m-%dT%H:%M:%S%Z") <= end)
+      ).select(['series_id', 'timestamp', 'anglez'])
+   
    endExe = time.time()
-   print(f'Execution time : {endExe-startExe} seconds')
-  
+   print(f'Execution time : {(endExe-startExe):.2f} seconds')
+
+   # plt.figure(figsize=(12,9))
+   # sns.lineplot(data=lf.collect(), x='timestamp', y='anglez')
+   # plt.tight_layout(h_pad=5, w_pad=5)
+   # plt.show()
+
+   import plotly.graph_objs as go
+   fig = go.Figure(data=go.Scatter(x=lf.collect()['timestamp'], 
+                           y=lf.collect()['anglez'],
+                           marker_color='indianred', text="counts"))
+   fig.update_layout({"title": 'Anglez of an accelerometer within 2 hours',
+                     "xaxis": {"title":"Time"},
+                     "yaxis": {"title":"Angle"},
+                     "showlegend": False})
+   # fig.write_image("by-month.png",format="png", width=1000, height=600, scale=3)
+   fig.show()
 
    pass
