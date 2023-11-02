@@ -61,6 +61,36 @@ def LoadParquet(f, n=None):
 
    return lf
 
+def ExtractTimeSeries():
+   '''
+   Extract data of interest from .parquet file (56min32s)
+   '''
+   x1 = pd.read_csv('./sleepLog_stepWanted.csv')
+   y = pl.scan_parquet('./train_series.parquet').with_columns(
+         (pl.col('step').cast(pl.UInt32)),
+         (pl.col('anglez').round(0).cast(pl.Int8)),
+         ((pl.col('enmo')*1e3).cast(pl.UInt16))
+      ).clone().clear().collect()
+
+   for sid in x1.sid:
+   
+      start = datetime.strptime(x1[x1.sid == sid]['start'].values[0], "%Y-%m-%dT%H:%M:%S%z").replace(tzinfo=None)
+      end = datetime.strptime(x1[x1.sid == sid]['end'].values[0], "%Y-%m-%dT%H:%M:%S%z").replace(tzinfo=None)
+      
+      lf = pl.scan_parquet('./train_series.parquet').filter(
+         (pl.col('series_id') == sid) &
+         (pl.col('timestamp').str.strptime(pl.Datetime, "%Y-%m-%dT%H:%M:%S%Z") >= start) & 
+         (pl.col('timestamp').str.strptime(pl.Datetime, "%Y-%m-%dT%H:%M:%S%Z") <= end)
+         ).with_columns(
+            (pl.col('step').cast(pl.UInt32)),
+            (pl.col('anglez').round(0).cast(pl.Int8)),
+            ((pl.col('enmo')*1e3).cast(pl.UInt16))
+         )
+
+      y.vstack(lf.collect(), in_place=True)
+   
+   # y.write_parquet('./ExtractTimeSeries.parquet')
+
 
 # Main program
 if __name__ == '__main__':
@@ -71,46 +101,13 @@ if __name__ == '__main__':
    usrAns = False
    if usrAns:
       CheckId()
-
+      ExtractTimeSeries()
    
    # lf = LoadParquet('./train_series.parquet', None)
-
-   def ExtractTimeSeries():
-      '''
-      Extract data of interest from .parquet file (56min32s)
-      '''
-      x1 = pd.read_csv('./sleepLog_stepWanted.csv')
-      y = pl.scan_parquet('./train_series.parquet').with_columns(
-            (pl.col('step').cast(pl.UInt32)),
-            (pl.col('anglez').round(0).cast(pl.Int8)),
-            ((pl.col('enmo')*1e3).cast(pl.UInt16))
-         ).clone().clear().collect()
-
-      for sid in x1.sid:
-      
-         
-         start = datetime.strptime(x1[x1.sid == sid]['start'].values[0], "%Y-%m-%dT%H:%M:%S%z").replace(tzinfo=None)
-         end = datetime.strptime(x1[x1.sid == sid]['end'].values[0], "%Y-%m-%dT%H:%M:%S%z").replace(tzinfo=None)
-         
-         lf = pl.scan_parquet('./train_series.parquet').filter(
-            (pl.col('series_id') == sid) &
-            (pl.col('timestamp').str.strptime(pl.Datetime, "%Y-%m-%dT%H:%M:%S%Z") >= start) & 
-            (pl.col('timestamp').str.strptime(pl.Datetime, "%Y-%m-%dT%H:%M:%S%Z") <= end)
-            ).with_columns(
-               (pl.col('step').cast(pl.UInt32)),
-               (pl.col('anglez').round(0).cast(pl.Int8)),
-               ((pl.col('enmo')*1e3).cast(pl.UInt16))
-            )
-
-         y.vstack(lf.collect(), in_place=True)
-      
-      # y.write_parquet('./ExtractTimeSeries.parquet')
 
    startExe = time.time()
    endExe = time.time()
    print(f'Execution time : {endExe-startExe} seconds')
-
-   
-   
+  
 
    pass
