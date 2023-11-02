@@ -3,11 +3,11 @@ import EDA_sleeplog as es
 import polars as pl
 import pandas as pd
 import numpy as np
-from datetime import datetime
+from datetime import datetime, timedelta
 import time
 
-import matplotlib.pyplot as plt
-import seaborn as sns
+
+import plotly.graph_objs as go
 
 # Function or Class
 def CheckId():
@@ -111,34 +111,31 @@ if __name__ == '__main__':
 
    startExe = time.time()
 
-   start = '2018-08-28T20:37:00-0400'
-   start = datetime.strptime(start, "%Y-%m-%dT%H:%M:%S%z").replace(tzinfo=None)
-   end = '2018-08-29T08:37:00-0400'
-   end = datetime.strptime(end, "%Y-%m-%dT%H:%M:%S%z").replace(tzinfo=None)
+   x0 = '2018-12-26T19:58:00-0500'
+   start = datetime.strptime(x0, "%Y-%m-%dT%H:%M:%S%z").replace(tzinfo=None) - timedelta(hours=8, minutes=0)
+   x1 = '2018-12-27T01:37:00-0500'
+   end = datetime.strptime(x1, "%Y-%m-%dT%H:%M:%S%z").replace(tzinfo=None) + timedelta(hours=8, minutes=0)
    
    lf = pl.scan_parquet('./ExtractedTimeSeries.parquet').filter(
-      (pl.col('series_id') == '038441c925bb') &
+      (pl.col('series_id') == '0402a003dae9') &
       (pl.col('timestamp').str.strptime(pl.Datetime, "%Y-%m-%dT%H:%M:%S%Z") >= start) &
       (pl.col('timestamp').str.strptime(pl.Datetime, "%Y-%m-%dT%H:%M:%S%Z") <= end)
       ).select(['series_id', 'timestamp', 'anglez'])
-   
-   endExe = time.time()
-   print(f'Execution time : {(endExe-startExe):.2f} seconds')
 
-   # plt.figure(figsize=(12,9))
-   # sns.lineplot(data=lf.collect(), x='timestamp', y='anglez')
-   # plt.tight_layout(h_pad=5, w_pad=5)
-   # plt.show()
-
-   import plotly.graph_objs as go
    fig = go.Figure(data=go.Scatter(x=lf.collect()['timestamp'], 
                            y=lf.collect()['anglez'],
-                           marker_color='indianred', text="counts"))
-   fig.update_layout({"title": 'Anglez of an accelerometer within 2 hours',
+                           marker_color='blue', text="counts"))
+   fig.update_layout({"title": 'Enmo of an accelerometer from onset to wakeup (+/- 2hrs)',
                      "xaxis": {"title":"Time"},
                      "yaxis": {"title":"Angle"},
                      "showlegend": False})
+   fig.add_vline(x=x0, line_width=3, line_dash='dash', line_color='red')
+   fig.add_vline(x=x1, line_width=3, line_dash='dash', line_color='red')
+   fig.add_vrect(x0=x0, x1=x1, line_width=0, fillcolor="red", opacity=0.2)
    # fig.write_image("by-month.png",format="png", width=1000, height=600, scale=3)
    fig.show()
+
+   endExe = time.time()
+   print(f'Execution time : {(endExe-startExe):.2f} seconds')
 
    pass
