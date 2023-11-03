@@ -65,11 +65,13 @@ def LoadParquet(f, n=None):
 
    return lf
 
-def ExtractTimeSeries():
+def BuildDateSet():
    '''
-   Extract data of interest from .parquet file (56min32s)
+   Build dataset for training or testing
    '''
-   x1 = pl.scan_csv('./sleepLog_stepWanted.csv').select(['sid', ''])
+   x1 = pl.scan_csv('./sleepLog_stepWanted.csv').select(['sid', 'nights_wanted']).collect().to_pandas()
+   x2 = pd.read_csv('./train_events_replacement.csv', index_col=None)
+
    y = pl.scan_parquet('./train_series.parquet').with_columns(
          (pl.col('step').cast(pl.UInt32)),
          (pl.col('anglez').round(0).cast(pl.Int8)),
@@ -77,14 +79,22 @@ def ExtractTimeSeries():
       ).clone().clear().collect()
 
    for sid in x1.sid:
-   
-      start = datetime.strptime(x1[x1.sid == sid]['start'].values[0], "%Y-%m-%dT%H:%M:%S%z").replace(tzinfo=None)
-      end = datetime.strptime(x1[x1.sid == sid]['end'].values[0], "%Y-%m-%dT%H:%M:%S%z").replace(tzinfo=None)
+         
+      # Extract the onset/wakeup time from csv files
+      startNight = x2[(x2['series_id'] == sid) & (x2['timestamp'] == x1)]['night'] + 1
+      OnsetTime = x2[(x2['series_id'] == sid) & (x2['night'] == startNight) & (x2['event'] == 'onset')]['timestamp']
+      WakeupTime = x2[(x2['series_id'] == sid) & (x2['night'] == startNight) & (x2['event'] == 'wakeup')]['timestamp']
+
+      startOnset = datetime.strptime(OnsetTime, "%Y-%m-%dT%H:%M:%S%z").replace(tzinfo=None) - timedelta(minutes=30)
+      endOnset = datetime.strptime(OnsetTime, "%Y-%m-%dT%H:%M:%S%z").replace(tzinfo=None) + timedelta(minutes=30)
+      startWakeup = datetime.strptime(WakeupTime, "%Y-%m-%dT%H:%M:%S%z").replace(tzinfo=None) - timedelta(minutes=30)
+      endWakeup = datetime.strptime(WakeupTime, "%Y-%m-%dT%H:%M:%S%z").replace(tzinfo=None) + timedelta(minutes=30)
       
+      # Extract the time series
       lf = pl.scan_parquet('./train_series.parquet').filter(
          (pl.col('series_id') == sid) &
-         (pl.col('timestamp').str.strptime(pl.Datetime, "%Y-%m-%dT%H:%M:%S%Z") >= start - timedelta(minutes=30)) & 
-         (pl.col('timestamp').str.strptime(pl.Datetime, "%Y-%m-%dT%H:%M:%S%Z") <= end + timedelta(minutes=30))
+         (pl.col('timestamp').str.strptime(pl.Datetime, "%Y-%m-%dT%H:%M:%S%Z") >= startOnset) & 
+         (pl.col('timestamp').str.strptime(pl.Datetime, "%Y-%m-%dT%H:%M:%S%Z") <= endOnset)
          ).with_columns(
             (pl.col('step').cast(pl.UInt32)),
             (pl.col('anglez').round(0).cast(pl.Int8)),
@@ -92,6 +102,19 @@ def ExtractTimeSeries():
          )
 
       y.vstack(lf.collect(), in_place=True)
+
+      lf = pl.scan_parquet('./train_series.parquet').filter(
+         (pl.col('series_id') == sid) &
+         (pl.col('timestamp').str.strptime(pl.Datetime, "%Y-%m-%dT%H:%M:%S%Z") >= startWakeup) & 
+         (pl.col('timestamp').str.strptime(pl.Datetime, "%Y-%m-%dT%H:%M:%S%Z") <= endWakeup)
+         ).with_columns(
+            (pl.col('step').cast(pl.UInt32)),
+            (pl.col('anglez').round(0).cast(pl.Int8)),
+            ((pl.col('enmo')*1e3).cast(pl.UInt16))
+         )
+
+      y.vstack(lf.collect(), in_place=True)
+
    
    # y.write_parquet('./ExtractTimeSeries.parquet')
 
@@ -105,11 +128,11 @@ if __name__ == '__main__':
    usrAns = False
    if usrAns:
       CheckId()
-      ExtractTimeSeries()
    
    # lf = LoadParquet('./train_series.parquet', None)
 
    startExe = time.time()
+   BuildDateSet()
 
    x0 = '2018-12-26T19:58:00-0500'
    start = datetime.strptime(x0, "%Y-%m-%dT%H:%M:%S%z").replace(tzinfo=None) - timedelta(hours=8, minutes=0)
