@@ -120,7 +120,7 @@ def BuildDateSet():
       startWakeup = datetime.strptime(WakeupTime, "%Y-%m-%dT%H:%M:%S%z").replace(tzinfo=None) - timedelta(minutes=30)
       endWakeup = datetime.strptime(WakeupTime, "%Y-%m-%dT%H:%M:%S%z").replace(tzinfo=None) + timedelta(minutes=30)
       
-      # Extract the time series
+      # Extract the time series for onset time
       lf = pl.scan_parquet('./train_series.parquet').filter(
          (pl.col('series_id') == sid) &
          (pl.col('timestamp').str.strptime(pl.Datetime, "%Y-%m-%dT%H:%M:%S%Z") >= startOnset) & 
@@ -132,6 +132,7 @@ def BuildDateSet():
 
       y.vstack(lf.collect(), in_place=True)
 
+      # Extract the time series for wakeup time
       lf = pl.scan_parquet('./train_series.parquet').filter(
          (pl.col('series_id') == sid) &
          (pl.col('timestamp').str.strptime(pl.Datetime, "%Y-%m-%dT%H:%M:%S%Z") >= startWakeup) & 
