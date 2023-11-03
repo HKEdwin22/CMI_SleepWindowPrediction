@@ -69,7 +69,7 @@ def ExtractTimeSeries():
    '''
    Extract data of interest from .parquet file (56min32s)
    '''
-   x1 = pd.read_csv('./sleepLog_stepWanted.csv')
+   x1 = pl.scan_csv('./sleepLog_stepWanted.csv').select(['sid', ''])
    y = pl.scan_parquet('./train_series.parquet').with_columns(
          (pl.col('step').cast(pl.UInt32)),
          (pl.col('anglez').round(0).cast(pl.Int8)),
@@ -83,8 +83,8 @@ def ExtractTimeSeries():
       
       lf = pl.scan_parquet('./train_series.parquet').filter(
          (pl.col('series_id') == sid) &
-         (pl.col('timestamp').str.strptime(pl.Datetime, "%Y-%m-%dT%H:%M:%S%Z") >= start) & 
-         (pl.col('timestamp').str.strptime(pl.Datetime, "%Y-%m-%dT%H:%M:%S%Z") <= end)
+         (pl.col('timestamp').str.strptime(pl.Datetime, "%Y-%m-%dT%H:%M:%S%Z") >= start - timedelta(minutes=30)) & 
+         (pl.col('timestamp').str.strptime(pl.Datetime, "%Y-%m-%dT%H:%M:%S%Z") <= end + timedelta(minutes=30))
          ).with_columns(
             (pl.col('step').cast(pl.UInt32)),
             (pl.col('anglez').round(0).cast(pl.Int8)),
