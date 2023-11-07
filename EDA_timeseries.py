@@ -5,6 +5,7 @@ import pandas as pd
 import numpy as np
 from datetime import datetime, timedelta
 import time
+from tqdm import tqdm
 
 
 import plotly.graph_objs as go
@@ -106,8 +107,9 @@ def BuildDateSet():
          (pl.col('step').cast(pl.UInt32)),
          (pl.col('anglez').round(0).cast(pl.Int8))
       ).select(['series_id', 'step', 'timestamp', 'anglez']).clone().clear().collect()
+   y = y.with_columns(pl.lit('').alias('state'))
 
-   for sid in x1.sid:
+   for sid in tqdm(x1.sid, desc='Dataset under construction'):
          
       # Extract the onset/wakeup time from csv files
       refNight = x1[(x1['sid'] == sid)]['start'].values[0]
@@ -115,10 +117,10 @@ def BuildDateSet():
       OnsetTime = x2[(x2['series_id'] == sid) & (x2['night'] == wantedNight) & (x2['event'] == 'onset')]['timestamp'].values[0]
       WakeupTime = x2[(x2['series_id'] == sid) & (x2['night'] == wantedNight) & (x2['event'] == 'wakeup')]['timestamp'].values[0]
 
-      startOnset = datetime.strptime(OnsetTime, "%Y-%m-%dT%H:%M:%S%z").replace(tzinfo=None) - timedelta(minutes=30)
-      endOnset = datetime.strptime(OnsetTime, "%Y-%m-%dT%H:%M:%S%z").replace(tzinfo=None) + timedelta(minutes=30)
-      startWakeup = datetime.strptime(WakeupTime, "%Y-%m-%dT%H:%M:%S%z").replace(tzinfo=None) - timedelta(minutes=30)
-      endWakeup = datetime.strptime(WakeupTime, "%Y-%m-%dT%H:%M:%S%z").replace(tzinfo=None) + timedelta(minutes=30)
+      startOnset = datetime.strptime(OnsetTime, "%Y-%m-%dT%H:%M:%S%z").replace(tzinfo=None) - timedelta(hours=2)
+      endOnset = datetime.strptime(OnsetTime, "%Y-%m-%dT%H:%M:%S%z").replace(tzinfo=None) + timedelta(hours=2)
+      startWakeup = datetime.strptime(WakeupTime, "%Y-%m-%dT%H:%M:%S%z").replace(tzinfo=None) - timedelta(hours=2)
+      endWakeup = datetime.strptime(WakeupTime, "%Y-%m-%dT%H:%M:%S%z").replace(tzinfo=None) + timedelta(hours=2)
       
       # Extract the time series for onset time
       lf = pl.scan_parquet('./train_series.parquet').filter(
@@ -127,8 +129,9 @@ def BuildDateSet():
          (pl.col('timestamp').str.strptime(pl.Datetime, "%Y-%m-%dT%H:%M:%S%Z") <= endOnset)
          ).with_columns(
             (pl.col('step').cast(pl.UInt32)),
-            (pl.col('anglez').round(0).cast(pl.Int8))
-         ).select(['series_id', 'step', 'timestamp', 'anglez'])
+            (pl.col('anglez').round(0).cast(pl.Int8)),
+            (pl.lit('awake').alias('state'))
+         ).select(['series_id', 'step', 'timestamp', 'anglez', 'state'])
 
       y.vstack(lf.collect(), in_place=True)
 
@@ -139,12 +142,13 @@ def BuildDateSet():
          (pl.col('timestamp').str.strptime(pl.Datetime, "%Y-%m-%dT%H:%M:%S%Z") <= endWakeup)
          ).with_columns(
             (pl.col('step').cast(pl.UInt32)),
-            (pl.col('anglez').round(0).cast(pl.Int8))
-         )
+            (pl.col('anglez').round(0).cast(pl.Int8)),
+            (pl.lit('sleep').alias('state'))
+         ).select(['series_id', 'step', 'timestamp', 'anglez', 'state'])
 
       y.vstack(lf.collect(), in_place=True)
 
-      y.write_parquet('./ExtactTimeSeries.parquet')
+      y.write_parquet('./ExtactTimeSeries_2hrs_labeled.parquet')
 
 def PrintTimeSeriesSample():
 
@@ -173,6 +177,18 @@ def PrintTimeSeriesSample():
    fig.show()
 
 
+# def RollingAvg(x):
+#    '''
+#    Build a new table holding the rolling average of anglez
+#    x : input file
+#    '''
+#    accelerometer = pl.scan_parquet(x).select('series_id').collect().to_pandas()
+#    for sid in tqdm(accelerometer.series_id):
+#       targetSeries = pl.scan_parquet(x).filter(
+#          (pl.col('series_id') == sid) &
+#          (pl.col())
+#       )
+
 # Main program
 if __name__ == '__main__':
 
@@ -186,9 +202,10 @@ if __name__ == '__main__':
       CheckId()
       ExtractTimeSeries()
       PrintTimeSeriesSample()
-   
+      
    # lf = LoadParquet('./train_series.parquet', None)
    BuildDateSet()
+
 
    
    endExe = time.time()
