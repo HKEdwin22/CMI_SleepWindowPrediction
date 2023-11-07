@@ -116,17 +116,19 @@ def BuildDateSet():
       wantedNight = x2[(x2['series_id'] == sid) & (x2['timestamp'] == refNight)]['night'].values[0] + 1
       OnsetTime = x2[(x2['series_id'] == sid) & (x2['night'] == wantedNight) & (x2['event'] == 'onset')]['timestamp'].values[0]
       WakeupTime = x2[(x2['series_id'] == sid) & (x2['night'] == wantedNight) & (x2['event'] == 'wakeup')]['timestamp'].values[0]
+      OnsetTime = datetime.strptime(OnsetTime, "%Y-%m-%dT%H:%M:%S%z").replace(tzinfo=None)
+      WakeupTime = datetime.strptime(WakeupTime, "%Y-%m-%dT%H:%M:%S%z").replace(tzinfo=None)
 
-      startOnset = datetime.strptime(OnsetTime, "%Y-%m-%dT%H:%M:%S%z").replace(tzinfo=None) - timedelta(hours=2)
-      endOnset = datetime.strptime(OnsetTime, "%Y-%m-%dT%H:%M:%S%z").replace(tzinfo=None) + timedelta(hours=2)
-      startWakeup = datetime.strptime(WakeupTime, "%Y-%m-%dT%H:%M:%S%z").replace(tzinfo=None) - timedelta(hours=2)
-      endWakeup = datetime.strptime(WakeupTime, "%Y-%m-%dT%H:%M:%S%z").replace(tzinfo=None) + timedelta(hours=2)
+      startOnset = OnsetTime - timedelta(hours=2)
+      endOnset = OnsetTime + timedelta(hours=2)
+      startWakeup = WakeupTime - timedelta(hours=2)
+      endWakeup = WakeupTime + timedelta(hours=2)
       
-      # Extract the time series for onset time
+      # Extract the time series for onset time (state = before asleep)
       lf = pl.scan_parquet('./train_series.parquet').filter(
          (pl.col('series_id') == sid) &
          (pl.col('timestamp').str.strptime(pl.Datetime, "%Y-%m-%dT%H:%M:%S%Z") >= startOnset) & 
-         (pl.col('timestamp').str.strptime(pl.Datetime, "%Y-%m-%dT%H:%M:%S%Z") <= endOnset)
+         (pl.col('timestamp').str.strptime(pl.Datetime, "%Y-%m-%dT%H:%M:%S%Z") <= OnsetTime)
          ).with_columns(
             (pl.col('step').cast(pl.UInt32)),
             (pl.col('anglez').round(0).cast(pl.Int8)),
@@ -135,15 +137,41 @@ def BuildDateSet():
 
       y.vstack(lf.collect(), in_place=True)
 
-      # Extract the time series for wakeup time
+      # Extract the time series for onset time (state = after asleep)
       lf = pl.scan_parquet('./train_series.parquet').filter(
          (pl.col('series_id') == sid) &
-         (pl.col('timestamp').str.strptime(pl.Datetime, "%Y-%m-%dT%H:%M:%S%Z") >= startWakeup) & 
-         (pl.col('timestamp').str.strptime(pl.Datetime, "%Y-%m-%dT%H:%M:%S%Z") <= endWakeup)
+         (pl.col('timestamp').str.strptime(pl.Datetime, "%Y-%m-%dT%H:%M:%S%Z") >= OnsetTime) & 
+         (pl.col('timestamp').str.strptime(pl.Datetime, "%Y-%m-%dT%H:%M:%S%Z") <= endOnset)
          ).with_columns(
             (pl.col('step').cast(pl.UInt32)),
             (pl.col('anglez').round(0).cast(pl.Int8)),
             (pl.lit('sleep').alias('state'))
+         ).select(['series_id', 'step', 'timestamp', 'anglez', 'state'])
+
+      y.vstack(lf.collect(), in_place=True)
+
+      # Extract the time series for wakeup time (state = before wake up)
+      lf = pl.scan_parquet('./train_series.parquet').filter(
+         (pl.col('series_id') == sid) &
+         (pl.col('timestamp').str.strptime(pl.Datetime, "%Y-%m-%dT%H:%M:%S%Z") >= startWakeup) & 
+         (pl.col('timestamp').str.strptime(pl.Datetime, "%Y-%m-%dT%H:%M:%S%Z") <= WakeupTime)
+         ).with_columns(
+            (pl.col('step').cast(pl.UInt32)),
+            (pl.col('anglez').round(0).cast(pl.Int8)),
+            (pl.lit('sleep').alias('state'))
+         ).select(['series_id', 'step', 'timestamp', 'anglez', 'state'])
+
+      y.vstack(lf.collect(), in_place=True)
+
+      # Extract the time series for wakeup time (state = after wake up)
+      lf = pl.scan_parquet('./train_series.parquet').filter(
+         (pl.col('series_id') == sid) &
+         (pl.col('timestamp').str.strptime(pl.Datetime, "%Y-%m-%dT%H:%M:%S%Z") >= WakeupTime) & 
+         (pl.col('timestamp').str.strptime(pl.Datetime, "%Y-%m-%dT%H:%M:%S%Z") <= endWakeup)
+         ).with_columns(
+            (pl.col('step').cast(pl.UInt32)),
+            (pl.col('anglez').round(0).cast(pl.Int8)),
+            (pl.lit('awake').alias('state'))
          ).select(['series_id', 'step', 'timestamp', 'anglez', 'state'])
 
       y.vstack(lf.collect(), in_place=True)
@@ -205,7 +233,21 @@ if __name__ == '__main__':
       
    # lf = LoadParquet('./train_series.parquet', None)
    BuildDateSet()
+   # df = pl.scan_parquet('./ExtactTimeSeries_2hrs_labeled.parquet').collect().to_pandas()
+   # sid = df.series_id.unique()
+   # y = [
+   #    pl.Series('sid', '', dtype=pl.Utf8),
+   #    pl.Series('window', '', dtype=pl.UInt32),
+   #    pl.Series('Avg anglez', '', dtype=pl.Int8),
+   #    pl.Series('state', '', dtype=pl.Utf8)
+   # ]
+   # y = pl.LazyFrame(y).collect()
 
+   # for accelerometer in sid:
+   #    dfAwake = df[(df.series_id == accelerometer) & (df.state == 'awake')]
+   #    dfSleep = df[(df.series_id == accelerometer) & (df.state == 'sleep')]
+
+   #    for row in range(len(dfAwake)):
 
    
    endExe = time.time()
