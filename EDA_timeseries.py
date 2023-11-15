@@ -239,7 +239,7 @@ def RollingAvg(x, sid):
       ]
    y = pl.LazyFrame(y).collect().to_pandas()
 
-   for sbj in sid:
+   for sbj in tqdm(sid):
 
       tg = x[x.series_id == sbj]
 
@@ -254,11 +254,11 @@ def RollingAvg(x, sid):
          'window' : [i for i in range(1, length+1)],
          'mean' : rollingMean1[2:],
          'std' : rollingStd1[2:],
-         'state' : ['sleep' if i>=5 and i<=12 else 'awake' for i in range(length)]
+         'state' : ['sleep' if i>=3 and i<=10 else 'awake' for i in range(length)] # <=10 model 2, <=11 model 1
          }
       y= pd.concat([y, pd.DataFrame(concat)], ignore_index=True)
 
-   y.to_csv('./training set.csv', index=False)
+   y.to_csv('./training set 2.csv', index=False)
 
 # Main program
 if __name__ == '__main__':
@@ -275,10 +275,10 @@ if __name__ == '__main__':
       PrintTimeSeriesSample()
       BuildDateSet()
       
-   # lf = LoadParquet('./train_series.parquet', None)
+   lf = LoadParquet('./test_series.parquet', None)
    # df = pl.scan_parquet('./ExtactTimeSeries_2hrs_labeled.parquet').collect().to_pandas()
    # sid = df.series_id.unique()
-   
+   # RollingAvg(df, sid)
       
    
    endExe = time.time()
