@@ -230,25 +230,53 @@ if __name__ == '__main__':
       CheckId()
       ExtractTimeSeries()
       PrintTimeSeriesSample()
+      BuildDateSet()
       
    # lf = LoadParquet('./train_series.parquet', None)
-   BuildDateSet()
-   # df = pl.scan_parquet('./ExtactTimeSeries_2hrs_labeled.parquet').collect().to_pandas()
-   # sid = df.series_id.unique()
-   # y = [
-   #    pl.Series('sid', '', dtype=pl.Utf8),
-   #    pl.Series('window', '', dtype=pl.UInt32),
-   #    pl.Series('Avg anglez', '', dtype=pl.Int8),
-   #    pl.Series('state', '', dtype=pl.Utf8)
-   # ]
-   # y = pl.LazyFrame(y).collect()
+   df = pl.scan_parquet('./ExtactTimeSeries_2hrs_labeled.parquet').collect().to_pandas()
+   sid = df.series_id.unique()
+   y = [
+      pl.Series('sid', '', dtype=pl.Utf8),
+      pl.Series('window', '', dtype=pl.UInt32),
+      pl.Series('mean', '', dtype=pl.Int8),
+      pl.Series('std', '', dtype=pl.Float32),
+      pl.Series('state', '', dtype=pl.Utf8)
+   ]
+   y = pl.LazyFrame(y).collect().to_pandas()
+   interval = [i for i in range(0, 2880*2+1, 360)]
+   interval = [interval[i] - 540 for i in range(2, len(interval))]
 
-   # for accelerometer in sid:
-   #    dfAwake = df[(df.series_id == accelerometer) & (df.state == 'awake')]
-   #    dfSleep = df[(df.series_id == accelerometer) & (df.state == 'sleep')]
+   for sbj in sid:
 
-   #    for row in range(len(dfAwake)):
+      # Extract target time series
+      tg = df[df.series_id == sbj]
 
+      # Check if there're overlap between the selected time series
+      t0 = tg.iloc[0, 2]
+      t0 = datetime.strptime(t0, "%Y-%m-%dT%H:%M:%S%z").replace(tzinfo=None)
+      t1 = tg.iloc[-1, 2]
+      t1 = datetime.strptime(t1, "%Y-%m-%dT%H:%M:%S%z").replace(tzinfo=None)
+
+      if t1 - t0 <= timedelta(hours=4):
+         print(f'{sbj} : sleep duration <= 4hours\n')
+
+      # Compute the rolling mean and standard deviation
+      rollingMean1 = tg.anglez.rolling(window=540, step=360).mean()
+      rollingStd1 = tg.anglez.rolling(window=540, step=360).std()
+      
+      # Determine the state for each window
+      state = tg.iloc[0, 4]
+      chgIdx = tg[tg.state != state].index
+
+      length = len(rollingMean1) - 2
+      concat = {
+         'sid': [sbj for _ in range(length)],
+         'window' : [i for i in range(1, length+1)],
+         'mean' : rollingMean1[2:],
+         'std' : rollingStd1[2:]
+         }
+      y= pd.concat([y, pd.DataFrame(concat)], ignore_index=True)
+      
    
    endExe = time.time()
    print(f'Execution time : {(endExe-startExe):.2f} seconds')
