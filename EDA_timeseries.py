@@ -204,18 +204,61 @@ def PrintTimeSeriesSample():
    # fig.write_image("by-month.png",format="png", width=1000, height=600, scale=3)
    fig.show()
 
+def CheckOverlapSeries(x, s, t=4):
+   '''
+   Check if the extracted time series overlap.
+   Run with looping through sid
+   x : input dataframe (labled parquet file)
+   s : sid
+   t : threshold hours
+   '''
+   # Extract target time series
+   tg = x[x.series_id == sbj]
 
-# def RollingAvg(x):
-#    '''
-#    Build a new table holding the rolling average of anglez
-#    x : input file
-#    '''
-#    accelerometer = pl.scan_parquet(x).select('series_id').collect().to_pandas()
-#    for sid in tqdm(accelerometer.series_id):
-#       targetSeries = pl.scan_parquet(x).filter(
-#          (pl.col('series_id') == sid) &
-#          (pl.col())
-#       )
+   # Check if there're overlap between the selected time series
+   t0 = tg.iloc[0, 2]
+   t0 = datetime.strptime(t0, "%Y-%m-%dT%H:%M:%S%z").replace(tzinfo=None)
+   t1 = tg.iloc[-1, 2]
+   t1 = datetime.strptime(t1, "%Y-%m-%dT%H:%M:%S%z").replace(tzinfo=None)
+
+   if t1 - t0 <= timedelta(hours=t):
+      print(f'{sbj} : sleep duration <= {t}hours\n')
+
+def RollingAvg(x, sid):
+   '''
+   Build a new table holding the rolling average and standard deviation of anglez
+   x : pandas dataframe collected from a label parquet file
+   sid : unique sid in the file
+   '''
+   y = [
+         pl.Series('sid', '', dtype=pl.Utf8),
+         pl.Series('window', '', dtype=pl.UInt32),
+         pl.Series('mean', '', dtype=pl.Int8),
+         pl.Series('std', '', dtype=pl.Float32),
+         pl.Series('state', '', dtype=pl.Utf8)
+      ]
+   y = pl.LazyFrame(y).collect().to_pandas()
+
+   for sbj in sid:
+
+      tg = x[x.series_id == sbj]
+
+      # Compute the rolling mean and standard deviation
+      rollingMean1 = tg.anglez.rolling(window=540, step=360).mean()
+      rollingStd1 = tg.anglez.rolling(window=540, step=360).std()    
+      
+      # Determine the state of the windows
+      length = len(rollingMean1) - 2
+      concat = {
+         'sid': [sbj for _ in range(length)],
+         'window' : [i for i in range(1, length+1)],
+         'mean' : rollingMean1[2:],
+         'std' : rollingStd1[2:],
+         'state' : ['sleep' if i>=5 and i<=12 else 'awake' for i in range(length)]
+         }
+      y= pd.concat([y, pd.DataFrame(concat)], ignore_index=True)
+
+   y.to_csv('./training set.csv', index=False)
 
 # Main program
 if __name__ == '__main__':
@@ -233,49 +276,9 @@ if __name__ == '__main__':
       BuildDateSet()
       
    # lf = LoadParquet('./train_series.parquet', None)
-   df = pl.scan_parquet('./ExtactTimeSeries_2hrs_labeled.parquet').collect().to_pandas()
-   sid = df.series_id.unique()
-   y = [
-      pl.Series('sid', '', dtype=pl.Utf8),
-      pl.Series('window', '', dtype=pl.UInt32),
-      pl.Series('mean', '', dtype=pl.Int8),
-      pl.Series('std', '', dtype=pl.Float32),
-      pl.Series('state', '', dtype=pl.Utf8)
-   ]
-   y = pl.LazyFrame(y).collect().to_pandas()
-   interval = [i for i in range(0, 2880*2+1, 360)]
-   interval = [interval[i] - 540 for i in range(2, len(interval))]
-
-   for sbj in sid:
-
-      # Extract target time series
-      tg = df[df.series_id == sbj]
-
-      # Check if there're overlap between the selected time series
-      t0 = tg.iloc[0, 2]
-      t0 = datetime.strptime(t0, "%Y-%m-%dT%H:%M:%S%z").replace(tzinfo=None)
-      t1 = tg.iloc[-1, 2]
-      t1 = datetime.strptime(t1, "%Y-%m-%dT%H:%M:%S%z").replace(tzinfo=None)
-
-      if t1 - t0 <= timedelta(hours=4):
-         print(f'{sbj} : sleep duration <= 4hours\n')
-
-      # Compute the rolling mean and standard deviation
-      rollingMean1 = tg.anglez.rolling(window=540, step=360).mean()
-      rollingStd1 = tg.anglez.rolling(window=540, step=360).std()
-      
-      # Determine the state for each window
-      state = tg.iloc[0, 4]
-      chgIdx = tg[tg.state != state].index
-
-      length = len(rollingMean1) - 2
-      concat = {
-         'sid': [sbj for _ in range(length)],
-         'window' : [i for i in range(1, length+1)],
-         'mean' : rollingMean1[2:],
-         'std' : rollingStd1[2:]
-         }
-      y= pd.concat([y, pd.DataFrame(concat)], ignore_index=True)
+   # df = pl.scan_parquet('./ExtactTimeSeries_2hrs_labeled.parquet').collect().to_pandas()
+   # sid = df.series_id.unique()
+   
       
    
    endExe = time.time()
