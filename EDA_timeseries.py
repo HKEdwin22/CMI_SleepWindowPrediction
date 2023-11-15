@@ -176,7 +176,7 @@ def BuildDateSet():
 
       y.vstack(lf.collect(), in_place=True)
 
-      y.write_parquet('./ExtactTimeSeries_2hrs_labeled.parquet')
+   y.write_parquet('./ExtactTimeSeries_2hrs_labeled.parquet')
 
 def PrintTimeSeriesSample():
 
@@ -224,19 +224,30 @@ def CheckOverlapSeries(x, s, t=4):
    if t1 - t0 <= timedelta(hours=t):
       print(f'{sbj} : sleep duration <= {t}hours\n')
 
-def RollingAvg(x, sid):
+def RollingAvg(x, sid, w=540, st=360, _set='train'):
    '''
-   Build a new table holding the rolling average and standard deviation of anglez
+   Build and return a new table holding the rolling average and standard deviation of anglez
    x : pandas dataframe collected from a label parquet file
    sid : unique sid in the file
+   w : window length
+   st : step size
+   _set : train / test
    '''
-   y = [
-         pl.Series('sid', '', dtype=pl.Utf8),
-         pl.Series('window', '', dtype=pl.UInt32),
-         pl.Series('mean', '', dtype=pl.Int8),
-         pl.Series('std', '', dtype=pl.Float32),
-         pl.Series('state', '', dtype=pl.Utf8)
-      ]
+   if _set == 'train':
+      y = [
+            pl.Series('sid', '', dtype=pl.Utf8),
+            pl.Series('window', '', dtype=pl.UInt32),
+            pl.Series('mean', '', dtype=pl.Int8),
+            pl.Series('std', '', dtype=pl.Float32),
+            pl.Series('state', '', dtype=pl.Utf8)
+         ]
+   else:
+      y = [
+            pl.Series('sid', '', dtype=pl.Utf8),
+            pl.Series('window', '', dtype=pl.UInt32),
+            pl.Series('mean', '', dtype=pl.Int8),
+            pl.Series('std', '', dtype=pl.Float32)
+         ]
    y = pl.LazyFrame(y).collect().to_pandas()
 
    for sbj in tqdm(sid):
@@ -244,21 +255,62 @@ def RollingAvg(x, sid):
       tg = x[x.series_id == sbj]
 
       # Compute the rolling mean and standard deviation
-      rollingMean1 = tg.anglez.rolling(window=540, step=360).mean()
-      rollingStd1 = tg.anglez.rolling(window=540, step=360).std()    
+      rollingMean1 = tg.anglez.rolling(window=w, step=st).mean()
+      rollingStd1 = tg.anglez.rolling(window=w, step=st).std()    
       
       # Determine the state of the windows
       length = len(rollingMean1) - 2
-      concat = {
-         'sid': [sbj for _ in range(length)],
-         'window' : [i for i in range(1, length+1)],
-         'mean' : rollingMean1[2:],
-         'std' : rollingStd1[2:],
-         'state' : ['sleep' if i>=3 and i<=10 else 'awake' for i in range(length)] # <=10 model 2, <=11 model 1
-         }
-      y= pd.concat([y, pd.DataFrame(concat)], ignore_index=True)
+      if _set == 'train':
+         concat = {
+            'sid': [sbj for _ in range(length)],
+            'window' : [i for i in range(1, length+1)],
+            'mean' : rollingMean1[2:],
+            'std' : rollingStd1[2:],
+            'state' : ['sleep' if i>=3 and i<=10 else 'awake' for i in range(length)] # <=10 model 2, <=11 model 1
+            }
+      else:
+         concat = {
+            'sid': [sbj for _ in range(length)],
+            'window' : [i for i in range(1, length+1)],
+            'mean' : rollingMean1[2:],
+            'std' : rollingStd1[2:]
+            }
+      y = pd.concat([y, pd.DataFrame(concat)], ignore_index=True)
 
-   y.to_csv('./training set 2.csv', index=False)
+   if False:
+      y.to_csv('./training set 2.csv', index=False)
+
+   return y
+
+def BuildTestSet():
+   x1 = pl.scan_csv('./sleepLog_stepWanted.csv').select(['sid', 'start']).collect().to_pandas()
+   x2 = pd.read_csv('./train_events_replacement.csv', index_col=None)
+
+   y = pl.scan_parquet('./train_series.parquet').with_columns(
+         (pl.col('step').cast(pl.UInt32)),
+         (pl.col('anglez').round(0).cast(pl.Int8))
+      ).select(['series_id', 'step', 'timestamp', 'anglez']).clone().clear().collect()
+
+   for sid in tqdm(x1.sid, desc='Test set construction'):
+
+      # Choose reference night from csv files
+      refNight = x1[(x1['sid'] == sid)]['start'].values[0]
+      refNight = datetime.strptime(refNight, "%Y-%m-%dT%H:%M:%S%z").replace(tzinfo=None)
+
+      # Extract the time series
+      lf = pl.scan_parquet('./train_series.parquet').filter(
+         (pl.col('series_id') == sid) &
+         (pl.col('timestamp').str.strptime(pl.Datetime, "%Y-%m-%dT%H:%M:%S%Z") >= refNight  + timedelta(days=4, hours=3)) &
+         (pl.col('timestamp').str.strptime(pl.Datetime, "%Y-%m-%dT%H:%M:%S%Z") <= refNight  + timedelta(days=4, hours=3, minutes=15))
+      ).with_columns(
+         (pl.col('step').cast(pl.UInt32)),
+         (pl.col('anglez').round(0).cast(pl.Int8))
+      ).select(['series_id', 'step', 'timestamp', 'anglez'])
+
+      y.vstack(lf.collect(), in_place=True)
+
+   y.write_parquet('./Testset.parquet')
+
 
 # Main program
 if __name__ == '__main__':
@@ -275,6 +327,7 @@ if __name__ == '__main__':
       PrintTimeSeriesSample()
       BuildDateSet()
       
+   BuildTestSet()
    lf = LoadParquet('./test_series.parquet', None)
    # df = pl.scan_parquet('./ExtactTimeSeries_2hrs_labeled.parquet').collect().to_pandas()
    # sid = df.series_id.unique()
