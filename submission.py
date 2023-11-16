@@ -11,7 +11,10 @@ import time as time
 
 # Main program
 if __name__ == '__main__':
+
     _ = es.ChangeDir()
+
+    startExe = time.time()
 
     # Load data
     file = './test_series.parquet'
@@ -88,5 +91,8 @@ if __name__ == '__main__':
                   }
     submission = pd.DataFrame(submission, index=False)
     submission.to_csv('./submission.csv')
-    
+
+endExe = time.time()
+print(f'Execution time : {(endExe-startExe):.2f} seconds')
+
 pass
