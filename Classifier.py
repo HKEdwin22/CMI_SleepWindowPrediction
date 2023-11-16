@@ -9,6 +9,7 @@ from sklearn.preprocessing import MinMaxScaler
 from sklearn import metrics
 import pickle
 import time
+from tqdm import tqdm
 
 
 # Functions
@@ -59,7 +60,7 @@ if __name__ == '__main__':
       TrainModel('./training set 2.csv')
 
    # Load data
-   file = './test_series.parquet'
+   file = './Testset.parquet'
    df = pl.scan_parquet(file).collect().to_pandas()
    sid = df.series_id.unique()
 
@@ -72,12 +73,23 @@ if __name__ == '__main__':
 
    # Load and deploy the model
    clf = pickle.load(open('./model2', 'rb'))
-
    y_pred = clf.predict(X).tolist()
-   idx = []
-   for i in range(len(y_pred)):
-      if y_pred[i] == 'awake':
-         idx.append(i)
+
+   # Extract windows that are different from the initial state
+   dfAvg['prediction'] = pd.Series(y_pred)
+   ans = {}
+
+   for s in tqdm(sid):
+      
+      window = []
+
+      tg = dfAvg[dfAvg.sid == s].reset_index()
+      iniS = tg.iloc[0,4] # initial state
+      predS = tg.iloc[:,4]
+
+      for i in range(len(predS)):
+         if predS[i] != iniS:
+            window.append(tg.iloc[i,2])
 
    endExe = time.time()
    print(f'Execution time : {(endExe-startExe):.2f} seconds')
