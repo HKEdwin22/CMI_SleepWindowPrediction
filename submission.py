@@ -36,7 +36,7 @@ if __name__ == '__main__':
 
     # Extract windows that are different from the initial state
     dfAvg['prediction'] = pd.Series(y_pred)
-    ans = {}
+    seriesID, step, event = [], [], []
 
     for s in sid:
         
@@ -51,21 +51,41 @@ if __name__ == '__main__':
             if predS[i] != iniS:
                 window.append(tg.iloc[i,2])
 
-        # Determine the state of the period
+        # Identify the window of changes
         cont = 0
+        chgWin = 0
+        chgRcd = []
         if len(window) >= 359 :
             for i in range(len(window)):
                 if i != len(window)-1:
                     if window[i+1] - window[i] == 1:
                         cont += 1
-                    elif len(window[i:]) >= 359:
-                        cont = 0
-                    elif cont >= 359:
+                    else:
+                        if cont >= 359:
+                            chgRcd.append(chgWin)
+                            if len(window[i:]) >= 359:
+                                chgWin = i+1
+                                cont = 0
+                            elif len(window[i:]) < 359:
+                                break
                         
+        if chgRcd != []:
+            for i in chgRcd:
+                state0 = tg[tg['window'] == i-1].prediction
+                state1 = tg[tg['window'] == i].prediction
+                if state0 == state1:
+                    print('Error: pending modifications')
+                else:
+                    seriesID.append(s)
+                    step.append((tg[tg['window'] == i]).step)
+                    event.append('wakeup' if state1 == 'awake' else 'onset')
 
-
-
-        # elif len(window) == :
-
-    submission = pd.DataFrame()
+    # Save results into the submission file
+    submission = {'row_id': [i for i in range(len(seriesID))], 
+                  'series_id': seriesID,
+                  'step': step,
+                  'event': event
+                  }
+    submission = pd.DataFrame(submission, index=False)
+    submission.to_csv('./submission.csv')
 pass
