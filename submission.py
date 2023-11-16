@@ -53,14 +53,14 @@ if __name__ == '__main__':
 
         # Determine the state of the period
         cont = 0
-        if len(window) >= 358:
+        if len(window) >= 359 :
             for i in range(len(window)):
                 if i != len(window)-1:
                     if window[i+1] - window[i] == 1:
                         cont += 1
-                    elif len(window[i:]) >= 358:
+                    elif len(window[i:]) >= 359:
                         cont = 0
-                    elif cont >= 358:
+                    elif cont >= 359:
                         
 
 
