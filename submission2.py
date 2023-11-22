@@ -93,7 +93,7 @@ if __name__ == '__main__':
                   'step': step,
                   'event': event
                   }
-    submission = pd.DataFrame(submission, index=False)
+    submission = pd.DataFrame(submission, index=None)
     submission.to_csv('./submission.csv')
 
 endExe = time.time()
