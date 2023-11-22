@@ -50,30 +50,42 @@ if __name__ == '__main__':
         iniS = tg.iloc[0,5] # initial state
         predS = tg.iloc[:,5]
 
+        # Identify windows that have changed state
         for i in range(len(predS)):
             if predS[i] != iniS:
                 window.append(tg.iloc[i,2])
                 iniS = tg.iloc[i,5]
 
-        # Identify real changes
-        chgRcd = []
+        # Identify changed states that last for 360 steps (30mins)
+        chWinConfirmed = []
         for i in range(len(window)):
             if i+1 != len(window):
                 if window[i+1] - window[i] >= 360:
-                    chgRcd.append(window[i])
+                    chWinConfirmed.append(window[i])
             elif tg.iloc[-1,2] - window[i] >=360:
-                chgRcd.append(window[i])
-                                    
-        if chgRcd != []:
-            for i in chgRcd:
-                state0 = tg[tg['window'] == i-1].prediction
-                state1 = tg[tg['window'] == i].prediction
-                if state0 == state1:
-                    print('Error: pending modifications')
+                chWinConfirmed.append(window[i])
+
+        # Select the exact step as the final result
+        if chWinConfirmed != []:
+            extStep = {}
+            for i in chWinConfirmed:
+                angle1 = df[(dfRaw.series_id == s) & (dfRaw.step == i)]
+                angle2 = df[(dfRaw.series_id == s) & (dfRaw.step == i+1)]
+                std = tg.iloc[i-2, 4]
+
+                if angle1>=-3*std and angle1<=3*std:
+                    if angle2<=-3*std or angle2>=3*std:
+                        extStep[i] = i+1
                 else:
-                    seriesID.append(s)
-                    step.append((tg[tg['window'] == i]).step)
-                    event.append('wakeup' if state1 == 'awake' else 'onset')
+                    extStep[i] = i
+
+            for w, s in extStep:
+                seriesID.append(s)
+                step.append(s)
+                if tg.iloc[w-1,5] == 'sleep':
+                    event.append('onset')
+                else:
+                    event.append('wakeup')
 
     # Save results into the submission file
     submission = {'row_id': [i for i in range(len(seriesID))], 
