@@ -8,6 +8,7 @@ from sklearn.preprocessing import MinMaxScaler
 import Classifier as CLF
 import pickle
 import time as time
+from tqdm import tqdm
 
 # Main program
 if __name__ == '__main__':
@@ -17,8 +18,8 @@ if __name__ == '__main__':
     startExe = time.time()
 
     # Load data
-    file = './test_series.parquet'
-    df = pl.scan_parquet('./test_series.parquet').with_columns(
+    file = './train_series.parquet'
+    df = pl.scan_parquet(file).with_columns(
         (
             (pl.col('step').cast(pl.UInt32)), 
             (pl.col('anglez').round(0).cast(pl.Int8))
@@ -26,6 +27,7 @@ if __name__ == '__main__':
     ).select(['series_id', 'step', 'timestamp', 'anglez']).collect().to_pandas()
     sid = df.series_id.unique()
 
+    print('-'*20 + 'Compute rolling mean and standard deviation' + '-'*20)
     dfAvg = et.RollingAvg(df, sid, 2, 1, 'test')
     X = dfAvg.iloc[:, 2:]
 
@@ -41,7 +43,7 @@ if __name__ == '__main__':
     dfAvg['prediction'] = pd.Series(y_pred)
     seriesID, step, event = [], [], []
 
-    for s in sid:
+    for s in tqdm(sid):
         
         window = []
 
@@ -69,8 +71,8 @@ if __name__ == '__main__':
         if chWinConfirmed != []:
             extStep = {}
             for i in chWinConfirmed:
-                angle1 = df[(dfRaw.series_id == s) & (dfRaw.step == i)]
-                angle2 = df[(dfRaw.series_id == s) & (dfRaw.step == i+1)]
+                angle1 = df[(df.series_id == s) & (df.step == i)]
+                angle2 = df[(df.series_id == s) & (df.step == i+1)]
                 std = tg.iloc[i-2, 4]
 
                 if angle1>=-3*std and angle1<=3*std:

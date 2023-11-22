@@ -98,7 +98,7 @@ def ExtractTimeSeries():
 
 def BuildDateSet():
    '''
-   Build dataset for training or testing
+   Build dataset for training
    '''
    x1 = pl.scan_csv('./sleepLog_stepWanted.csv').select(['sid', 'start']).collect().to_pandas()
    x2 = pd.read_csv('./train_events_replacement.csv', index_col=None)
