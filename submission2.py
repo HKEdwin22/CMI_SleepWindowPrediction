@@ -18,7 +18,7 @@ if __name__ == '__main__':
     startExe = time.time()
 
     # Load data
-    file = './train_series.parquet'
+    file = './test_series.parquet'
     df = pl.scan_parquet(file).with_columns(
         (
             (pl.col('step').cast(pl.UInt32)), 
